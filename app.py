@@ -20,15 +20,12 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# Custom CSS με εταιρικά χρώματα ΗΡΑΚΛΗΣ (Deep Blue: #002B49, Holcim Blue: #0072CE)
 st.markdown(
     """
     <style>
-        /* Γενικό φόντο και γραμματοσειρές */
         .main {
             background-color: #f8fafc;
         }
-        /* Header Banner Ομίλου ΗΡΑΚΛΗΣ */
         .heracles-header {
             background: linear-gradient(135deg, #002B49 0%, #004b7a 60%, #0072CE 100%);
             padding: 24px 30px;
@@ -52,7 +49,6 @@ st.markdown(
             margin-bottom: 0;
             font-weight: 400;
         }
-        /* Κάρτες στατιστικών (KPIs) */
         .metric-card {
             background-color: white;
             padding: 18px 22px;
@@ -74,7 +70,6 @@ st.markdown(
             font-weight: 600;
             text-transform: uppercase;
         }
-        /* Κουμπί εκτέλεσης */
         .stButton>button {
             background: linear-gradient(135deg, #002B49 0%, #0072CE 100%) !important;
             color: white !important;
@@ -95,7 +90,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# Μηχανισμός Keep-Alive (Ping κάθε 40 δευτερόλεπτα για να μη κλείνει η σελίδα)
+# Μηχανισμός Keep-Alive
 components.html(
     """
     <script>
@@ -108,7 +103,6 @@ components.html(
     height=0,
 )
 
-# Banner Τίτλου
 st.markdown(
     """
     <div class="heracles-header">
@@ -306,9 +300,7 @@ with st.sidebar:
         width=160,
     )
     st.markdown("### ⚙️ Ρυθμίσεις Συστήματος")
-    st.info(
-        "🟢 **Live Connection:** Ενεργό Heartbeat (Η εφαρμογή διατηρείται ανοιχτή αυτόματα)."
-    )
+    st.info("🟢 **Live Connection:** Ενεργό Heartbeat.")
     st.markdown("---")
     st.markdown("📍 **Μονάδες Αφετηρίας:** 9 Κέντρα Διανομής")
     st.markdown("🚢 **Ναυτιλιακές Συνδέσεις:** 18 Πορθμεία / Νησιά")
@@ -341,7 +333,7 @@ if file_zonda and file_tourmo:
         df_tourmo = read_csv_smart(file_tourmo.getvalue())
 
         if df_zonda is None or df_tourmo is None:
-            st.error("Σφάλμα: Αποτυχία ανάγνωσης κωδικοποίησης των CSV αρχείων.")
+            st.error("Σφάλμα: Αποτυχία ανάγνωσης των CSV αρχείων.")
             st.stop()
 
         progress_bar.progress(20)
@@ -362,7 +354,8 @@ if file_zonda and file_tourmo:
             c
             for c in df_zonda.columns
             if any(
-                c.strip("#").strip().lower() == t.lower() for t in cols_to_drop_z
+                c.strip("#").strip().lower() == t.lower()
+                for t in cols_to_drop_z
             )
         ]
         if found_drop_z:
@@ -449,7 +442,9 @@ if file_zonda and file_tourmo:
                     if m
                     else v_str.replace(" ", "").upper()
                 )
-                return "".join(greek_to_latin.get(char, char) for char in p)
+                return "".join(
+                    greek_to_latin.get(char, char) for char in p
+                )
 
             df_zonda[z_vehicle] = df_zonda[z_vehicle].apply(clean_plate_fn)
 
@@ -564,21 +559,6 @@ if file_zonda and file_tourmo:
 
             df_zonda[z_dist] = final_dist_zonda
 
-        # Zonda Pivots (Χωρίς Shipping Point)
-        z_piv1 = (
-            df_zonda.groupby([z_carrier, z_vehicle], as_index=False)[z_dist]
-            .sum()
-            .rename(columns={z_dist: "Zonda_Km"})
-        )
-        z_piv1["Zonda_Km"] = z_piv1["Zonda_Km"].round(2)
-
-        z_piv2 = (
-            df_zonda.groupby([z_sap, z_carrier], as_index=False)[z_dist]
-            .sum()
-            .rename(columns={z_dist: "Zonda_Km"})
-        )
-        z_piv2["Zonda_Km"] = z_piv2["Zonda_Km"].round(2)
-
         progress_bar.progress(50)
         status_text.text("3/5: Επεξεργασία δεδομένων TOURMO & Στόλου...")
 
@@ -666,7 +646,7 @@ if file_zonda and file_tourmo:
         t_parent_group = find_t_contains("Γονική Ομάδα")
         t_group = find_t_exact(
             "Ομάδα"
-        )  # ΑΚΡΙΒΗΣ ΙΣΟΤΗΤΑ ΓΙΑ ΝΑ ΜΗΝ ΕΠΙΛΕΓΕΙ ΤΗΝ ΕΒΔΟΜΑΔΑ
+        )  # Ακριβής ισότητα για το όνομα μεταφορέα
         t_veh_col = find_t_exact("Όχημα")
 
         # Tourmo Pivots
@@ -677,7 +657,7 @@ if file_zonda and file_tourmo:
             .sum()
             .rename(columns={t_dist: "Tourmo_Km"})
         )
-        t_piv1["Tourmo_Km"] = t_piv1["Tourmo_Km"].round(2)
+        t_piv1["Tourmo_Km"] = t_piv1["Tourmo_Km"].round(0)
 
         t_piv2 = (
             df_tourmo.groupby(
@@ -686,50 +666,88 @@ if file_zonda and file_tourmo:
             .sum()
             .rename(columns={t_dist: "Tourmo_Km"})
         )
-        t_piv2["Tourmo_Km"] = t_piv2["Tourmo_Km"].round(2)
+        t_piv2["Tourmo_Km"] = t_piv2["Tourmo_Km"].round(0)
+
+        # --- C. PIVOTS ZONDA ΜΕ 'ΓΟΝΙΚΗ ΟΜΑΔΑ' ΤΕΡΜΑ ΔΕΞΙΑ ---
+        # 1. Zonda_Pivot_Vehicle: CARRIER -> VEHICLE | Zonda_Km | Γονική Ομάδα (δεξιά)
+        z_piv1 = (
+            df_zonda.groupby([z_carrier, z_vehicle], as_index=False)[z_dist]
+            .sum()
+            .rename(columns={z_dist: "Zonda_Km"})
+        )
+        z_piv1["Zonda_Km"] = z_piv1["Zonda_Km"].round(0)
+
+        # Mapping Γονικής Ομάδας από το Tourmo βάσει Οχήματος
+        tourmo_parent_by_veh = (
+            df_tourmo.groupby(t_veh_col)[t_parent_group].first().to_dict()
+        )
+        z_piv1["Γονική Ομάδα"] = (
+            z_piv1[z_vehicle].map(tourmo_parent_by_veh).fillna("-")
+        )
+
+        # 2. Zonda_Pivot_SAP: COMM_CARRRIER_SAP_NO -> CARRIER | Zonda_Km | Γονική Ομάδα (δεξιά)
+        z_piv2 = (
+            df_zonda.groupby([z_sap, z_carrier], as_index=False)[z_dist]
+            .sum()
+            .rename(columns={z_dist: "Zonda_Km"})
+        )
+        z_piv2["Zonda_Km"] = z_piv2["Zonda_Km"].round(0)
+
+        # Mapping Γονικής Ομάδας από το Tourmo βάσει SAP No
+        tourmo_parent_by_sap = (
+            df_tourmo.groupby(t_ext_id)[t_parent_group].first().to_dict()
+        )
+        z_piv2["Γονική Ομάδα"] = (
+            z_piv2[z_sap].map(tourmo_parent_by_sap).fillna("-")
+        )
 
         progress_bar.progress(75)
-        status_text.text("4/5: Δημιουργία συγκριτικών πινάκων Tablet Usage...")
+        status_text.text(
+            "4/5: Δημιουργία συγκριτικών πινάκων Tablet Usage (Βάση TOURMO)..."
+        )
 
-        # --- C. ΣΥΓΚΡΙΤΙΚΕΣ ΚΑΡΤΕΛΕΣ TABLET USAGE (ΒΑΣΗ TOURMO) ---
+        # --- D. ΣΥΓΚΡΙΤΙΚΕΣ ΚΑΡΤΕΛΕΣ TABLET USAGE (ΒΑΣΗ TOURMO) ---
+        def calc_usage_pct(t_val, z_val):
+            # Κανόνας 1: Αν και τα δύο είναι 0 km -> 100%
+            if t_val == 0 and z_val == 0:
+                return 1.0
+            # Κανόνας 2: Αν Zonda == 0 και Tourmo > 0 -> 0%
+            if z_val == 0:
+                return 0.0
+            pct = t_val / z_val
+            # Κανόνας 3: Αν ξεπερνά το 100% -> γίνεται 100%
+            if pct > 1.0:
+                return 1.0
+            return round(pct, 2)
+
+        # Α. Tablet_Use_Truck
         tablet_truck = t_piv1.copy()
         zonda_km_by_veh = (
-            df_zonda.groupby(z_vehicle)[z_dist].sum().round(2).to_dict()
+            df_zonda.groupby(z_vehicle)[z_dist].sum().round(0).to_dict()
         )
         tablet_truck["Zonda_Km"] = (
-            tablet_truck[t_veh_col]
-            .map(zonda_km_by_veh)
-            .fillna(0.0)
-            .round(2)
+            tablet_truck[t_veh_col].map(zonda_km_by_veh).fillna(0.0).round(0)
         )
         tablet_truck["Ποσοστό Χρήσης Tablet"] = tablet_truck.apply(
-            lambda r: round(r["Tourmo_Km"] / r["Zonda_Km"], 4)
-            if r["Zonda_Km"] > 0
-            else 0.0,
-            axis=1,
+            lambda r: calc_usage_pct(r["Tourmo_Km"], r["Zonda_Km"]), axis=1
         )
 
+        # Β. Tablet_Use_Carrier
         tablet_carrier = t_piv2.copy()
         zonda_km_by_sap = (
-            df_zonda.groupby(z_sap)[z_dist].sum().round(2).to_dict()
+            df_zonda.groupby(z_sap)[z_dist].sum().round(0).to_dict()
         )
         tablet_carrier["Zonda_Km"] = (
-            tablet_carrier[t_ext_id]
-            .map(zonda_km_by_sap)
-            .fillna(0.0)
-            .round(2)
+            tablet_carrier[t_ext_id].map(zonda_km_by_sap).fillna(0.0).round(0)
         )
         tablet_carrier["Ποσοστό Χρήσης Tablet"] = tablet_carrier.apply(
-            lambda r: round(r["Tourmo_Km"] / r["Zonda_Km"], 4)
-            if r["Zonda_Km"] > 0
-            else 0.0,
-            axis=1,
+            lambda r: calc_usage_pct(r["Tourmo_Km"], r["Zonda_Km"]), axis=1
         )
 
         progress_bar.progress(90)
         status_text.text("5/5: Δημιουργία τελικού αρχείου Excel (8 καρτέλες)...")
 
-        # --- D. EXCEL WRITING & STYLING ---
+        # --- E. EXCEL WRITING & FORMATTING ---
         output_buffer = io.BytesIO()
         red_fill = PatternFill(
             start_color="FFC7CE", end_color="FFC7CE", fill_type="solid"
@@ -761,6 +779,7 @@ if file_zonda and file_tourmo:
                 writer, index=False, sheet_name="Tablet_Use_Carrier"
             )
 
+            # Μορφοποίηση όλων των καρτελών
             for sheet_name in writer.sheets.keys():
                 ws = writer.sheets[sheet_name]
                 ws.freeze_panes = "A2"
@@ -780,11 +799,21 @@ if file_zonda and file_tourmo:
                     for cell in row:
                         cell.alignment = center_alignment
 
+                # Στις καρτέλες Tablet Usage: Ποσοστό σε '0%' και κοκκίνισμα του 0%
                 if sheet_name in ["Tablet_Use_Truck", "Tablet_Use_Carrier"]:
                     pct_col_idx = ws.max_column
                     for row_idx in range(2, ws.max_row + 1):
                         cell = ws.cell(row=row_idx, column=pct_col_idx)
-                        cell.number_format = "0.0%"
+                        cell.number_format = "0%"
+
+                        # Αν το ποσοστό είναι 0% -> Κοκκίνισε το κελί!
+                        if (
+                            cell.value is not None
+                            and isinstance(cell.value, (int, float))
+                            and cell.value == 0
+                        ):
+                            cell.fill = red_fill
+                            cell.font = red_font
 
                 for col in ws.columns:
                     h_val = str(col[0].value or "")
@@ -798,7 +827,9 @@ if file_zonda and file_tourmo:
                         ws.column_dimensions[c_letter].width = max(
                             m_len + 8, 28
                         )
-                    elif "TABLET" in h_val.upper() or "ΠΟΣΟΣΤΟ" in h_val.upper():
+                    elif (
+                        "TABLET" in h_val.upper() or "ΠΟΣΟΣΤΟ" in h_val.upper()
+                    ):
                         ws.column_dimensions[c_letter].width = max(
                             m_len + 6, 24
                         )
@@ -807,7 +838,7 @@ if file_zonda and file_tourmo:
                             m_len + 5, 14
                         )
 
-            # Highlight αλλαγών στο Zonda
+            # Κοκκίνισμα αλλαγών αποστάσεων στο Zonda_Orders
             ws_z = writer.sheets["Zonda_Orders"]
             d_idx = None
             for idx, col_name in enumerate(df_zonda.columns, start=1):
@@ -824,7 +855,7 @@ if file_zonda and file_tourmo:
 
         progress_bar.progress(100)
         status_text.text("Ολοκληρώθηκε!")
-        time.sleep(0.5)
+        time.sleep(0.4)
         progress_bar.empty()
         status_text.empty()
 
@@ -846,16 +877,13 @@ if file_zonda and file_tourmo:
             )
         with k3:
             st.markdown(
-                f"""<div class="metric-card"><div class="metric-label">Χιλιόμετρα Zonda (x2)</div><div class="metric-value">{df_zonda[z_dist].sum():,.1f}</div></div>""",
+                f"""<div class="metric-card"><div class="metric-label">Χιλιόμετρα Zonda (x2)</div><div class="metric-value">{int(round(df_zonda[z_dist].sum())):,}</div></div>""",
                 unsafe_allow_html=True,
             )
         with k4:
-            valid_pct = tablet_truck[tablet_truck["Zonda_Km"] > 0][
-                "Ποσοστό Χρήσης Tablet"
-            ]
-            avg_u = (valid_pct.mean() * 100) if len(valid_pct) > 0 else 0.0
+            avg_u = tablet_truck["Ποσοστό Χρήσης Tablet"].mean() * 100
             st.markdown(
-                f"""<div class="metric-card"><div class="metric-label">Μέση Χρήση Tablet</div><div class="metric-value">{avg_u:.1f}%</div></div>""",
+                f"""<div class="metric-card"><div class="metric-label">Μέση Χρήση Tablet</div><div class="metric-value">{avg_u:.0f}%</div></div>""",
                 unsafe_allow_html=True,
             )
 
@@ -882,13 +910,23 @@ if file_zonda and file_tourmo:
 
         with tab_v:
             st.dataframe(
-                tablet_truck.style.format({"Ποσοστό Χρήσης Tablet": "{:.1%}"}),
+                tablet_truck.style.format(
+                    {
+                        "Tourmo_Km": "{:.0f}",
+                        "Zonda_Km": "{:.0f}",
+                        "Ποσοστό Χρήσης Tablet": "{:.0%}",
+                    }
+                ),
                 use_container_width=True,
             )
         with tab_c:
             st.dataframe(
                 tablet_carrier.style.format(
-                    {"Ποσοστό Χρήσης Tablet": "{:.1%}"}
+                    {
+                        "Tourmo_Km": "{:.0f}",
+                        "Zonda_Km": "{:.0f}",
+                        "Ποσοστό Χρήσης Tablet": "{:.0%}",
+                    }
                 ),
                 use_container_width=True,
             )
