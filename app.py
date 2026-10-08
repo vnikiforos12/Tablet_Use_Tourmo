@@ -8,21 +8,119 @@ import openpyxl
 from openpyxl.styles import Alignment, Font, PatternFill
 import pandas as pd
 import streamlit as st
+import streamlit.components.v1 as components
 
-# Ρύθμιση Σελίδας
+# ==============================================================================
+# 1. ΡΥΘΜΙΣΗ ΣΕΛΙΔΑΣ & ΕΤΑΙΡΙΚΟ ΣΤΥΛ ΟΜΙΛΟΥ ΗΡΑΚΛΗΣ
+# ==============================================================================
 st.set_page_config(
-    page_title="Logistics & Telematics Reconciler",
-    page_icon="🚚",
+    page_title="Όμιλος ΗΡΑΚΛΗΣ | Logistics & Telematics Reconciler",
+    page_icon="🏛️",
     layout="wide",
+    initial_sidebar_state="expanded",
 )
 
-st.title("🚚 Logistics & Telematics (Tablet Usage) Reconciler")
+# Custom CSS με εταιρικά χρώματα ΗΡΑΚΛΗΣ (Deep Blue: #002B49, Holcim Blue: #0072CE)
 st.markdown(
-    "Ενοποίηση παραγγελιών **Zonda** και τηλεματικής **TOURMO** με αυτόματο υπολογισμό αποστάσεων και έλεγχο χρήσης tablet."
+    """
+    <style>
+        /* Γενικό φόντο και γραμματοσειρές */
+        .main {
+            background-color: #f8fafc;
+        }
+        /* Header Banner Ομίλου ΗΡΑΚΛΗΣ */
+        .heracles-header {
+            background: linear-gradient(135deg, #002B49 0%, #004b7a 60%, #0072CE 100%);
+            padding: 24px 30px;
+            border-radius: 12px;
+            color: white;
+            margin-bottom: 25px;
+            box-shadow: 0 4px 15px rgba(0, 43, 73, 0.2);
+            border-left: 8px solid #00A3E0;
+        }
+        .heracles-header h1 {
+            color: #ffffff;
+            font-size: 28px;
+            font-weight: 800;
+            margin: 0;
+            letter-spacing: 0.5px;
+        }
+        .heracles-header p {
+            color: #dbeafe;
+            font-size: 15px;
+            margin-top: 6px;
+            margin-bottom: 0;
+            font-weight: 400;
+        }
+        /* Κάρτες στατιστικών (KPIs) */
+        .metric-card {
+            background-color: white;
+            padding: 18px 22px;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+            border: 1px solid #e2e8f0;
+            border-top: 4px solid #002B49;
+            text-align: center;
+        }
+        .metric-value {
+            font-size: 26px;
+            font-weight: 800;
+            color: #002B49;
+            margin-top: 5px;
+        }
+        .metric-label {
+            font-size: 13px;
+            color: #64748b;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        /* Κουμπί εκτέλεσης */
+        .stButton>button {
+            background: linear-gradient(135deg, #002B49 0%, #0072CE 100%) !important;
+            color: white !important;
+            font-weight: 700 !important;
+            font-size: 16px !important;
+            padding: 12px 28px !important;
+            border-radius: 8px !important;
+            border: none !important;
+            box-shadow: 0 4px 12px rgba(0, 114, 206, 0.3) !important;
+            transition: all 0.3s ease !important;
+        }
+        .stButton>button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(0, 114, 206, 0.4) !important;
+        }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
+# Μηχανισμός Keep-Alive (Ping κάθε 40 δευτερόλεπτα για να μη κλείνει η σελίδα)
+components.html(
+    """
+    <script>
+        setInterval(function() {
+            window.dispatchEvent(new Event('resize'));
+            fetch(window.location.href, {mode: 'no-cors'}).catch(() => {});
+        }, 40000);
+    </script>
+    """,
+    height=0,
+)
+
+# Banner Τίτλου
+st.markdown(
+    """
+    <div class="heracles-header">
+        <h1>🏛️ ΟΜΙΛΟΣ ΗΡΑΚΛΗΣ | Logistics & Telematics Reconciler</h1>
+        <p>Ενοποίηση & Έλεγχος Παραγγελιών Zonda & Τηλεματικής TOURMO (Tablet Usage Rate)</p>
+    </div>
+    """,
+    unsafe_allow_html=True,
 )
 
 # ==============================================================================
-# ΡΥΘΜΙΣΕΙΣ & ΧΑΡΤΟΓΡΑΦΗΣΗ
+# 2. ΧΑΡΤΟΓΡΑΦΗΣΗ ΑΠΟΣΤΑΣΕΩΝ & ΠΛΟΙΩΝ
 # ==============================================================================
 SHIPPING_COORDS = {
     "Μηλάκι οδικές φορτώσεις": (38.379005, 24.065336),
@@ -168,7 +266,7 @@ def get_osrm_distance(p1, p2):
     try:
         url = f"http://router.project-osrm.org/route/v1/driving/{lon1},{lat1};{lon2},{lat2}?overview=false"
         req = urllib.request.Request(
-            url, headers={"User-Agent": "StreamlitLogisticsApp/1.0"}
+            url, headers={"User-Agent": "HeraclesLogisticsApp/1.0"}
         )
         with urllib.request.urlopen(req, timeout=10) as response:
             data = json.loads(response.read().decode())
@@ -200,545 +298,517 @@ def read_csv_smart(raw_bytes):
 
 
 # ==============================================================================
-# UI: ΑΝΕΒΑΣΜΑ ΑΡΧΕΙΩΝ
+# 3. UI: ΑΝΕΒΑΣΜΑ ΑΡΧΕΙΩΝ
 # ==============================================================================
+with st.sidebar:
+    st.image(
+        "https://upload.wikimedia.org/wikipedia/commons/thumb/c/ca/Holcim_Logo.svg/512px-Holcim_Logo.svg.png",
+        width=160,
+    )
+    st.markdown("### ⚙️ Ρυθμίσεις Συστήματος")
+    st.info(
+        "🟢 **Live Connection:** Ενεργό Heartbeat (Η εφαρμογή διατηρείται ανοιχτή αυτόματα)."
+    )
+    st.markdown("---")
+    st.markdown("📍 **Μονάδες Αφετηρίας:** 9 Κέντρα Διανομής")
+    st.markdown("🚢 **Ναυτιλιακές Συνδέσεις:** 18 Πορθμεία / Νησιά")
+
 col1, col2 = st.columns(2)
 
 with col1:
-    st.subheader("1. Αρχείο Zonda CSV")
+    st.markdown("#### 1. Αρχείο Zonda CSV (Παραγγελίες)")
     file_zonda = st.file_uploader(
         "Σύρετε ή επιλέξτε το Zonda CSV", type=["csv"], key="zonda"
     )
 
 with col2:
-    st.subheader("2. Αρχείο TOURMO CSV")
+    st.markdown("#### 2. Αρχείο TOURMO CSV (Τηλεματική)")
     file_tourmo = st.file_uploader(
         "Σύρετε ή επιλέξτε το TOURMO CSV", type=["csv"], key="tourmo"
     )
 
+# ==============================================================================
+# 4. ΕΠΕΞΕΡΓΑΣΙΑ & ΥΠΟΛΟΓΙΣΜΟΙ
+# ==============================================================================
 if file_zonda and file_tourmo:
-    if st.button("🚀 Επεξεργασία & Δημιουργία Αναφοράς Excel", type="primary"):
-        with st.spinner(
-            "Γίνεται επεξεργασία δεδομένων, υπολογισμός αποστάσεων OSRM και δημιουργία Pivots..."
-        ):
-            df_zonda = read_csv_smart(file_zonda.getvalue())
-            df_tourmo = read_csv_smart(file_tourmo.getvalue())
+    st.markdown("<br>", unsafe_allow_html=True)
+    if st.button("🚀 Εκτέλεση Επεξεργασίας & Δημιουργία Αναφοράς"):
+        progress_bar = st.progress(0)
+        status_text = st.empty()
 
-            if df_zonda is None or df_tourmo is None:
-                st.error("Σφάλμα κατά την ανάγνωση των αρχείων CSV.")
-                st.stop()
+        status_text.text("1/5: Ανάγνωση αρχείων CSV...")
+        df_zonda = read_csv_smart(file_zonda.getvalue())
+        df_tourmo = read_csv_smart(file_tourmo.getvalue())
 
-            # --- ΕΠΕΞΕΡΓΑΣΙΑ ZONDA ---
-            cols_to_drop_z = [
-                "DELIVERY_FROM_DAT",
-                "DELIVERY_TO_DAT",
-                "ORDER_NUMBER_FROM_SEQ_USAGE",
-                "RETURNED_QUANTITY",
-                "RETURNED_UOM",
-                "DELIVERED_UOM",
-            ]
-            found_drop_z = [
-                c
-                for c in df_zonda.columns
-                if any(
-                    c.strip("#").strip().lower() == t.lower()
-                    for t in cols_to_drop_z
-                )
-            ]
-            if found_drop_z:
-                df_zonda.drop(columns=found_drop_z, inplace=True)
+        if df_zonda is None or df_tourmo is None:
+            st.error("Σφάλμα: Αποτυχία ανάγνωσης κωδικοποίησης των CSV αρχείων.")
+            st.stop()
 
-            def find_z_col(target):
-                for c in df_zonda.columns:
-                    if target.lower() in c.lower():
-                        return c
-                return None
+        progress_bar.progress(20)
+        status_text.text(
+            "2/5: Επεξεργασία Zonda & Έξυπνος υπολογισμός αποστάσεων (OSRM)..."
+        )
 
-            z_order = find_z_col("ORDER_NUMBER")
-            z_status = find_z_col("STATUS")
-            z_shipping = find_z_col("SHIPPINGPOINT")
-            z_city = find_z_col("CITY")
-            z_address = find_z_col("SHIPTO_ADDRESS")
-            z_dist = find_z_col("DISTANCE")
-            z_qty = find_z_col("DELIVERED_QUANTITY")
-            z_sap = find_z_col("COMM_CARR")
-            z_carrier = None
+        # --- A. ZONDA PROCESSING ---
+        cols_to_drop_z = [
+            "DELIVERY_FROM_DAT",
+            "DELIVERY_TO_DAT",
+            "ORDER_NUMBER_FROM_SEQ_USAGE",
+            "RETURNED_QUANTITY",
+            "RETURNED_UOM",
+            "DELIVERED_UOM",
+        ]
+        found_drop_z = [
+            c
+            for c in df_zonda.columns
+            if any(
+                c.strip("#").strip().lower() == t.lower() for t in cols_to_drop_z
+            )
+        ]
+        if found_drop_z:
+            df_zonda.drop(columns=found_drop_z, inplace=True)
+
+        def find_z_col(target):
             for c in df_zonda.columns:
-                if "carrier" in c.lower() and "sap" not in c.lower():
-                    z_carrier = c
-                    break
-            z_vehicle = find_z_col("VEHICLE")
-            z_shipto_lat = find_z_col("SHIPTO_LATITUDE")
-            z_shipto_lon = find_z_col("SHIPTO_LONGITUDE")
+                if target.lower() in c.lower():
+                    return c
+            return None
 
-            # Clean Zonda fields
-            if z_order:
-                cl_order = (
-                    df_zonda[z_order]
-                    .astype(str)
-                    .str.replace("(10)", "", regex=False)
-                    .str.strip()
+        z_order = find_z_col("ORDER_NUMBER")
+        z_status = find_z_col("STATUS")
+        z_shipping = find_z_col("SHIPPINGPOINT")
+        z_city = find_z_col("CITY")
+        z_address = find_z_col("SHIPTO_ADDRESS")
+        z_dist = find_z_col("DISTANCE")
+        z_qty = find_z_col("DELIVERED_QUANTITY")
+        z_sap = find_z_col("COMM_CARR")
+        z_carrier = None
+        for c in df_zonda.columns:
+            if "carrier" in c.lower() and "sap" not in c.lower():
+                z_carrier = c
+                break
+        z_vehicle = find_z_col("VEHICLE")
+        z_shipto_lat = find_z_col("SHIPTO_LATITUDE")
+        z_shipto_lon = find_z_col("SHIPTO_LONGITUDE")
+
+        if z_order:
+            cl_order = (
+                df_zonda[z_order]
+                .astype(str)
+                .str.replace("(10)", "", regex=False)
+                .str.strip()
+            )
+            df_zonda[z_order] = pd.to_numeric(
+                cl_order, errors="coerce"
+            ).astype("Int64")
+
+        if z_status:
+            df_zonda = df_zonda[
+                ~df_zonda[z_status]
+                .astype(str)
+                .str.strip()
+                .str.lower()
+                .eq("deleted")
+            ].copy()
+
+        if z_qty:
+            num_qty = pd.to_numeric(
+                df_zonda[z_qty].str.replace(",", "."), errors="coerce"
+            )
+            df_zonda = df_zonda[num_qty != 0].copy()
+            df_zonda[z_qty] = pd.to_numeric(
+                df_zonda[z_qty].str.replace(",", "."), errors="coerce"
+            ).round(2)
+
+        if z_vehicle:
+            greek_to_latin = {
+                "Α": "A",
+                "Β": "B",
+                "Ε": "E",
+                "Ζ": "Z",
+                "Η": "H",
+                "Ι": "I",
+                "Κ": "K",
+                "Μ": "M",
+                "Ν": "N",
+                "Ο": "O",
+                "Ρ": "P",
+                "Τ": "T",
+                "Υ": "Y",
+                "Χ": "X",
+            }
+
+            def clean_plate_fn(val):
+                if pd.isna(val) or str(val).strip() == "":
+                    return ""
+                v_str = str(val).strip()
+                pattern = r"([A-Za-zΑ-Ωα-ω]{3}\s*\d{4}|[A-Za-z]{1,2}\s*\d{2,3}\s*[A-Za-z]{3})"
+                m = re.search(pattern, v_str)
+                p = (
+                    m.group(1).replace(" ", "").upper()
+                    if m
+                    else v_str.replace(" ", "").upper()
                 )
-                df_zonda[z_order] = pd.to_numeric(
-                    cl_order, errors="coerce"
-                ).astype("Int64")
+                return "".join(greek_to_latin.get(char, char) for char in p)
 
-            if z_status:
-                df_zonda = df_zonda[
-                    ~df_zonda[z_status]
-                    .astype(str)
-                    .str.strip()
-                    .str.lower()
-                    .eq("deleted")
-                ].copy()
+            df_zonda[z_vehicle] = df_zonda[z_vehicle].apply(clean_plate_fn)
 
-            if z_qty:
-                num_qty = pd.to_numeric(
-                    df_zonda[z_qty].str.replace(",", "."), errors="coerce"
+        if z_sap:
+            df_zonda[z_sap] = pd.to_numeric(
+                df_zonda[z_sap], errors="coerce"
+            ).astype("Int64")
+
+        if (
+            z_sap
+            and z_carrier
+            and z_sap in df_zonda.columns
+            and z_carrier in df_zonda.columns
+        ):
+            cols = [c for c in df_zonda.columns if c != z_sap]
+            c_idx = cols.index(z_carrier)
+            cols.insert(c_idx, z_sap)
+            df_zonda = df_zonda[cols]
+
+        alerts_zonda = []
+        is_dist_changed_zonda = []
+        if z_dist:
+            final_dist_zonda = []
+            for idx, row in df_zonda.iterrows():
+                order_id = row.get(z_order, f"Γραμμή {idx}")
+                city_name = str(row.get(z_city, "")).strip()
+                addr_name = str(row.get(z_address, "")).strip()
+                sp_name = str(row.get(z_shipping, "")).strip()
+
+                v_raw = str(row[z_dist] or "").strip()
+                c_dist_str = (
+                    v_raw.replace("km", "")
+                    .replace("KM", "")
+                    .strip()
+                    .replace(",", ".")
                 )
-                df_zonda = df_zonda[num_qty != 0].copy()
-                df_zonda[z_qty] = pd.to_numeric(
-                    df_zonda[z_qty].str.replace(",", "."), errors="coerce"
-                ).round(2)
+                try:
+                    orig_d = float(c_dist_str)
+                except ValueError:
+                    orig_d = 0.0
 
-            if z_vehicle:
-                greek_to_latin = {
-                    "Α": "A",
-                    "Β": "B",
-                    "Ε": "E",
-                    "Ζ": "Z",
-                    "Η": "H",
-                    "Ι": "I",
-                    "Κ": "K",
-                    "Μ": "M",
-                    "Ν": "N",
-                    "Ο": "O",
-                    "Ρ": "P",
-                    "Τ": "T",
-                    "Υ": "Y",
-                    "Χ": "X",
-                }
-
-                def clean_plate_fn(val):
-                    if pd.isna(val) or str(val).strip() == "":
-                        return ""
-                    v_str = str(val).strip()
-                    pattern = r"([A-Za-zΑ-Ωα-ω]{3}\s*\d{4}|[A-Za-z]{1,2}\s*\d{2,3}\s*[A-Za-z]{3})"
-                    m = re.search(pattern, v_str)
-                    p = (
-                        m.group(1).replace(" ", "").upper()
-                        if m
-                        else v_str.replace(" ", "").upper()
+                try:
+                    s_lat = float(
+                        str(row.get(z_shipto_lat, 0)).replace(",", ".")
                     )
-                    return "".join(
-                        greek_to_latin.get(char, char) for char in p
+                    s_lon = float(
+                        str(row.get(z_shipto_lon, 0)).replace(",", ".")
                     )
+                except ValueError:
+                    s_lat, s_lon = 0.0, 0.0
 
-                df_zonda[z_vehicle] = df_zonda[z_vehicle].apply(clean_plate_fn)
+                comb_loc = f"{city_name} {addr_name}".upper()
+                loc_tokens = set(
+                    re.findall(r"[\wΑ-Ωα-ωίϊΐόάέύϋΰήώ]+", comb_loc)
+                )
 
-            if z_sap:
-                df_zonda[z_sap] = pd.to_numeric(
-                    df_zonda[z_sap], errors="coerce"
-                ).astype("Int64")
-
-            if (
-                z_sap
-                and z_carrier
-                and z_sap in df_zonda.columns
-                and z_carrier in df_zonda.columns
-            ):
-                cols = [c for c in df_zonda.columns if c != z_sap]
-                c_idx = cols.index(z_carrier)
-                cols.insert(c_idx, z_sap)
-                df_zonda = df_zonda[cols]
-
-            alerts_zonda = []
-            is_dist_changed_zonda = []
-            if z_dist:
-                final_dist_zonda = []
-                for idx, row in df_zonda.iterrows():
-                    order_id = row.get(z_order, f"Γραμμή {idx}")
-                    city_name = str(row.get(z_city, "")).strip()
-                    addr_name = str(row.get(z_address, "")).strip()
-                    sp_name = str(row.get(z_shipping, "")).strip()
-
-                    v_raw = str(row[z_dist] or "").strip()
-                    c_dist_str = (
-                        v_raw.replace("km", "")
-                        .replace("KM", "")
-                        .strip()
-                        .replace(",", ".")
-                    )
-                    try:
-                        orig_d = float(c_dist_str)
-                    except ValueError:
-                        orig_d = 0.0
-
-                    try:
-                        s_lat = float(
-                            str(row.get(z_shipto_lat, 0)).replace(",", ".")
-                        )
-                        s_lon = float(
-                            str(row.get(z_shipto_lon, 0)).replace(",", ".")
-                        )
-                    except ValueError:
-                        s_lat, s_lon = 0.0, 0.0
-
-                    comb_loc = f"{city_name} {addr_name}".upper()
-                    loc_tokens = set(
-                        re.findall(r"[\wΑ-Ωα-ωίϊΐόάέύϋΰήώ]+", comb_loc)
-                    )
-
-                    matched_ferry = None
-                    for ferry in FERRY_DESTINATIONS:
-                        if "exclude_from" in ferry and any(
-                            ex.upper() in sp_name.upper()
-                            for ex in ferry["exclude_from"]
-                        ):
-                            continue
-                        if "only_from" in ferry and not any(
-                            of.upper() in sp_name.upper()
-                            for of in ferry["only_from"]
-                        ):
-                            continue
-                        if any(
-                            target.upper() in loc_tokens
-                            for target in ferry["names"]
-                        ):
-                            matched_ferry = ferry
-                            break
-
-                    if s_lat == 0.0 or s_lon == 0.0:
-                        final_dist_zonda.append(0.0)
-                        is_dist_changed_zonda.append(False)
-                        alerts_zonda.append(
-                            f"Παραγγελία {order_id} ({city_name}): Συντεταγμένες 0.0 (Απόσταση 0)"
-                        )
+                matched_ferry = None
+                for ferry in FERRY_DESTINATIONS:
+                    if "exclude_from" in ferry and any(
+                        ex.upper() in sp_name.upper()
+                        for ex in ferry["exclude_from"]
+                    ):
                         continue
+                    if "only_from" in ferry and not any(
+                        of.upper() in sp_name.upper()
+                        for of in ferry["only_from"]
+                    ):
+                        continue
+                    if any(
+                        target.upper() in loc_tokens for target in ferry["names"]
+                    ):
+                        matched_ferry = ferry
+                        break
 
-                    orig_coords = None
-                    for sp_k, coords in SHIPPING_COORDS.items():
-                        if sp_k.lower() in sp_name.lower():
-                            orig_coords = coords
-                            break
+                if s_lat == 0.0 or s_lon == 0.0:
+                    final_dist_zonda.append(0.0)
+                    is_dist_changed_zonda.append(False)
+                    alerts_zonda.append(
+                        f"Παραγγελία {order_id} ({city_name}): Συντεταγμένες 0.0 (Απόσταση 0)"
+                    )
+                    continue
 
-                    if matched_ferry and orig_coords:
-                        isl_port = matched_ferry["island_port"]
-                        if (
-                            "ΧΑΝΙΑ" in loc_tokens or "CHANIA" in loc_tokens
-                        ) and "only_from" not in matched_ferry:
-                            isl_port = (35.490, 24.075)
+                orig_coords = None
+                for sp_k, coords in SHIPPING_COORDS.items():
+                    if sp_k.lower() in sp_name.lower():
+                        orig_coords = coords
+                        break
 
-                        d1 = get_osrm_distance(
-                            orig_coords, matched_ferry["mainland_port"]
-                        )
-                        d2 = get_osrm_distance(isl_port, (s_lat, s_lon))
-                        tot_km = round((d1 + d2) * 2, 2)
-                        final_dist_zonda.append(tot_km)
-                        changed = abs(tot_km - round(orig_d * 2, 2)) > 0.5
-                        is_dist_changed_zonda.append(changed)
-                    elif orig_d == 0.0 and orig_coords:
-                        r_km = get_osrm_distance(orig_coords, (s_lat, s_lon))
-                        tot_km = round(r_km * 2, 2)
-                        final_dist_zonda.append(tot_km)
-                        is_dist_changed_zonda.append(tot_km > 0)
-                    else:
-                        final_dist_zonda.append(round(orig_d * 2, 2))
-                        is_dist_changed_zonda.append(False)
+                if matched_ferry and orig_coords:
+                    isl_port = matched_ferry["island_port"]
+                    if (
+                        "ΧΑΝΙΑ" in loc_tokens or "CHANIA" in loc_tokens
+                    ) and "only_from" not in matched_ferry:
+                        isl_port = (35.490, 24.075)
 
-                df_zonda[z_dist] = final_dist_zonda
+                    d1 = get_osrm_distance(
+                        orig_coords, matched_ferry["mainland_port"]
+                    )
+                    d2 = get_osrm_distance(isl_port, (s_lat, s_lon))
+                    tot_km = round((d1 + d2) * 2, 2)
+                    final_dist_zonda.append(tot_km)
+                    changed = abs(tot_km - round(orig_d * 2, 2)) > 0.5
+                    is_dist_changed_zonda.append(changed)
+                elif orig_d == 0.0 and orig_coords:
+                    r_km = get_osrm_distance(orig_coords, (s_lat, s_lon))
+                    tot_km = round(r_km * 2, 2)
+                    final_dist_zonda.append(tot_km)
+                    is_dist_changed_zonda.append(tot_km > 0)
+                else:
+                    final_dist_zonda.append(round(orig_d * 2, 2))
+                    is_dist_changed_zonda.append(False)
 
-            # Zonda Pivots (Χωρίς Shipping Point)
-            z_piv1 = (
-                df_zonda.groupby([z_carrier, z_vehicle], as_index=False)[z_dist]
-                .sum()
-                .rename(columns={z_dist: "Zonda_Km"})
-            )
-            z_piv1["Zonda_Km"] = z_piv1["Zonda_Km"].round(2)
+            df_zonda[z_dist] = final_dist_zonda
 
-            z_piv2 = (
-                df_zonda.groupby([z_sap, z_carrier], as_index=False)[z_dist]
-                .sum()
-                .rename(columns={z_dist: "Zonda_Km"})
-            )
-            z_piv2["Zonda_Km"] = z_piv2["Zonda_Km"].round(2)
+        # Zonda Pivots (Χωρίς Shipping Point)
+        z_piv1 = (
+            df_zonda.groupby([z_carrier, z_vehicle], as_index=False)[z_dist]
+            .sum()
+            .rename(columns={z_dist: "Zonda_Km"})
+        )
+        z_piv1["Zonda_Km"] = z_piv1["Zonda_Km"].round(2)
 
-            # --- ΕΠΕΞΕΡΓΑΣΙΑ TOURMO ---
-            df_tourmo.columns = [c.strip() for c in df_tourmo.columns]
+        z_piv2 = (
+            df_zonda.groupby([z_sap, z_carrier], as_index=False)[z_dist]
+            .sum()
+            .rename(columns={z_dist: "Zonda_Km"})
+        )
+        z_piv2["Zonda_Km"] = z_piv2["Zonda_Km"].round(2)
 
-            def find_t_exact(t_name):
-                for c in df_tourmo.columns:
-                    if c.strip().lower() == t_name.strip().lower():
-                        return c
-                return None
+        progress_bar.progress(50)
+        status_text.text("3/5: Επεξεργασία δεδομένων TOURMO & Στόλου...")
 
-            def find_t_contains(t_sub):
-                for c in df_tourmo.columns:
-                    if t_sub.lower() in c.lower():
-                        return c
-                return None
+        # --- B. TOURMO PROCESSING ---
+        df_tourmo.columns = [c.strip() for c in df_tourmo.columns]
 
-            t_id = find_t_exact("ID")
-            t_name = find_t_exact("Όνομα")
-            t_surname = find_t_exact("Επώνυμο")
-            t_ext_id = find_t_contains("Εξωτερικό αναγνωριστικό")
-            t_phone = find_t_contains("Τηλέφωνο")
-            t_dist = find_t_contains("Απόσταση")
-            t_unit = find_t_contains("Μονάδα Μέτρησης")
+        def find_t_exact(target_name):
+            for c in df_tourmo.columns:
+                if c.strip().lower() == target_name.strip().lower():
+                    return c
+            return None
 
-            if t_surname:
-                df_tourmo = df_tourmo[
-                    ~df_tourmo[t_surname]
-                    .astype(str)
-                    .str.lower()
-                    .str.contains("test")
-                ].copy()
+        def find_t_contains(target_substring):
+            for c in df_tourmo.columns:
+                if target_substring.lower() in c.lower():
+                    return c
+            return None
 
-            if t_name and t_surname:
-                c_name = df_tourmo[t_name].astype(str).str.strip()
-                c_sur = df_tourmo[t_surname].astype(str).str.strip()
-                comb_v = (
-                    (c_name + c_sur)
-                    .str.replace(" ", "", regex=False)
-                    .str.replace("g", "", case=False, regex=False)
-                )
+        t_id = find_t_exact("ID")
+        t_name = find_t_exact("Όνομα")
+        t_surname = find_t_exact("Επώνυμο")
+        t_ext_id = find_t_contains("Εξωτερικό αναγνωριστικό")
+        t_phone = find_t_contains("Τηλέφωνο")
+        t_dist = find_t_contains("Απόσταση")
+        t_unit = find_t_contains("Μονάδα Μέτρησης")
 
-                n_idx = df_tourmo.columns.get_loc(t_name)
-                df_tourmo.insert(n_idx, "Όχημα", comb_v)
-                df_tourmo.drop(columns=[t_name, t_surname], inplace=True)
+        if t_surname:
+            df_tourmo = df_tourmo[
+                ~df_tourmo[t_surname]
+                .astype(str)
+                .str.lower()
+                .str.contains("test")
+            ].copy()
 
-            t_ext_id = find_t_contains("Εξωτερικό αναγνωριστικό")
-            if t_ext_id:
-
-                def ext_mid_fn(val):
-                    if pd.isna(val) or str(val).strip() == "":
-                        return ""
-                    parts = str(val).strip().split("-")
-                    if len(parts) >= 3:
-                        return parts[2]
-                    m = re.search(r"\b\d{7}\b", str(val))
-                    return m.group(0) if m else str(val).strip()
-
-                df_tourmo[t_ext_id] = df_tourmo[t_ext_id].apply(ext_mid_fn)
-                df_tourmo[t_ext_id] = pd.to_numeric(
-                    df_tourmo[t_ext_id], errors="coerce"
-                ).astype("Int64")
-
-            if t_phone and t_phone in df_tourmo.columns:
-                df_tourmo.drop(columns=[t_phone], inplace=True)
-
-            t_unit = find_t_contains("Μονάδα Μέτρησης")
-            if t_unit and t_unit in df_tourmo.columns:
-                u_idx = df_tourmo.columns.get_loc(t_unit)
-                df_tourmo = df_tourmo.iloc[:, :u_idx].copy()
-
-            t_dist = find_t_contains("Απόσταση")
-            if t_dist and t_dist in df_tourmo.columns:
-                df_tourmo[t_dist] = pd.to_numeric(
-                    df_tourmo[t_dist].astype(str).str.replace(",", "."),
-                    errors="coerce",
-                ).round(2)
-
-            if t_id and t_id in df_tourmo.columns:
-                df_tourmo[t_id] = pd.to_numeric(
-                    df_tourmo[t_id], errors="coerce"
-                ).astype("Int64")
-
-            t_parent_group = find_t_contains("Γονική Ομάδα")
-            t_group = find_t_exact("Ομάδα")  # ΑΚΡΙΒΗΣ ΙΣΟΤΗΤΑ!
-            t_veh_col = find_t_exact("Όχημα")
-
-            # Tourmo Pivots
-            t_piv1 = (
-                df_tourmo.groupby(
-                    [t_parent_group, t_group, t_veh_col], as_index=False
-                )[t_dist]
-                .sum()
-                .rename(columns={t_dist: "Tourmo_Km"})
-            )
-            t_piv1["Tourmo_Km"] = t_piv1["Tourmo_Km"].round(2)
-
-            t_piv2 = (
-                df_tourmo.groupby(
-                    [t_parent_group, t_ext_id, t_group], as_index=False
-                )[t_dist]
-                .sum()
-                .rename(columns={t_dist: "Tourmo_Km"})
-            )
-            t_piv2["Tourmo_Km"] = t_piv2["Tourmo_Km"].round(2)
-
-            # --- ΣΥΓΚΡΙΤΙΚΕΣ ΚΑΡΤΕΛΕΣ (ΒΑΣΗ TOURMO) ---
-            tablet_truck = t_piv1.copy()
-            zonda_km_by_veh = (
-                df_zonda.groupby(z_vehicle)[z_dist].sum().round(2).to_dict()
-            )
-            tablet_truck["Zonda_Km"] = (
-                tablet_truck[t_veh_col]
-                .map(zonda_km_by_veh)
-                .fillna(0.0)
-                .round(2)
-            )
-            tablet_truck["Ποσοστό Χρήσης Tablet"] = tablet_truck.apply(
-                lambda r: round(r["Tourmo_Km"] / r["Zonda_Km"], 4)
-                if r["Zonda_Km"] > 0
-                else 0.0,
-                axis=1,
+        if t_name and t_surname:
+            c_name = df_tourmo[t_name].astype(str).str.strip()
+            c_sur = df_tourmo[t_surname].astype(str).str.strip()
+            comb_v = (
+                (c_name + c_sur)
+                .str.replace(" ", "", regex=False)
+                .str.replace("g", "", case=False, regex=False)
             )
 
-            tablet_carrier = t_piv2.copy()
-            zonda_km_by_sap = (
-                df_zonda.groupby(z_sap)[z_dist].sum().round(2).to_dict()
+            n_idx = df_tourmo.columns.get_loc(t_name)
+            df_tourmo.insert(n_idx, "Όχημα", comb_v)
+            df_tourmo.drop(columns=[t_name, t_surname], inplace=True)
+
+        t_ext_id = find_t_contains("Εξωτερικό αναγνωριστικό")
+        if t_ext_id:
+
+            def ext_mid_fn(val):
+                if pd.isna(val) or str(val).strip() == "":
+                    return ""
+                parts = str(val).strip().split("-")
+                if len(parts) >= 3:
+                    return parts[2]
+                m = re.search(r"\b\d{7}\b", str(val))
+                return m.group(0) if m else str(val).strip()
+
+            df_tourmo[t_ext_id] = df_tourmo[t_ext_id].apply(ext_mid_fn)
+            df_tourmo[t_ext_id] = pd.to_numeric(
+                df_tourmo[t_ext_id], errors="coerce"
+            ).astype("Int64")
+
+        if t_phone and t_phone in df_tourmo.columns:
+            df_tourmo.drop(columns=[t_phone], inplace=True)
+
+        t_unit = find_t_contains("Μονάδα Μέτρησης")
+        if t_unit and t_unit in df_tourmo.columns:
+            u_idx = df_tourmo.columns.get_loc(t_unit)
+            df_tourmo = df_tourmo.iloc[:, :u_idx].copy()
+
+        t_dist = find_t_contains("Απόσταση")
+        if t_dist and t_dist in df_tourmo.columns:
+            df_tourmo[t_dist] = pd.to_numeric(
+                df_tourmo[t_dist].astype(str).str.replace(",", "."),
+                errors="coerce",
+            ).round(2)
+
+        if t_id and t_id in df_tourmo.columns:
+            df_tourmo[t_id] = pd.to_numeric(
+                df_tourmo[t_id], errors="coerce"
+            ).astype("Int64")
+
+        t_parent_group = find_t_contains("Γονική Ομάδα")
+        t_group = find_t_exact(
+            "Ομάδα"
+        )  # ΑΚΡΙΒΗΣ ΙΣΟΤΗΤΑ ΓΙΑ ΝΑ ΜΗΝ ΕΠΙΛΕΓΕΙ ΤΗΝ ΕΒΔΟΜΑΔΑ
+        t_veh_col = find_t_exact("Όχημα")
+
+        # Tourmo Pivots
+        t_piv1 = (
+            df_tourmo.groupby(
+                [t_parent_group, t_group, t_veh_col], as_index=False
+            )[t_dist]
+            .sum()
+            .rename(columns={t_dist: "Tourmo_Km"})
+        )
+        t_piv1["Tourmo_Km"] = t_piv1["Tourmo_Km"].round(2)
+
+        t_piv2 = (
+            df_tourmo.groupby(
+                [t_parent_group, t_ext_id, t_group], as_index=False
+            )[t_dist]
+            .sum()
+            .rename(columns={t_dist: "Tourmo_Km"})
+        )
+        t_piv2["Tourmo_Km"] = t_piv2["Tourmo_Km"].round(2)
+
+        progress_bar.progress(75)
+        status_text.text("4/5: Δημιουργία συγκριτικών πινάκων Tablet Usage...")
+
+        # --- C. ΣΥΓΚΡΙΤΙΚΕΣ ΚΑΡΤΕΛΕΣ TABLET USAGE (ΒΑΣΗ TOURMO) ---
+        tablet_truck = t_piv1.copy()
+        zonda_km_by_veh = (
+            df_zonda.groupby(z_vehicle)[z_dist].sum().round(2).to_dict()
+        )
+        tablet_truck["Zonda_Km"] = (
+            tablet_truck[t_veh_col]
+            .map(zonda_km_by_veh)
+            .fillna(0.0)
+            .round(2)
+        )
+        tablet_truck["Ποσοστό Χρήσης Tablet"] = tablet_truck.apply(
+            lambda r: round(r["Tourmo_Km"] / r["Zonda_Km"], 4)
+            if r["Zonda_Km"] > 0
+            else 0.0,
+            axis=1,
+        )
+
+        tablet_carrier = t_piv2.copy()
+        zonda_km_by_sap = (
+            df_zonda.groupby(z_sap)[z_dist].sum().round(2).to_dict()
+        )
+        tablet_carrier["Zonda_Km"] = (
+            tablet_carrier[t_ext_id]
+            .map(zonda_km_by_sap)
+            .fillna(0.0)
+            .round(2)
+        )
+        tablet_carrier["Ποσοστό Χρήσης Tablet"] = tablet_carrier.apply(
+            lambda r: round(r["Tourmo_Km"] / r["Zonda_Km"], 4)
+            if r["Zonda_Km"] > 0
+            else 0.0,
+            axis=1,
+        )
+
+        progress_bar.progress(90)
+        status_text.text("5/5: Δημιουργία τελικού αρχείου Excel (8 καρτέλες)...")
+
+        # --- D. EXCEL WRITING & STYLING ---
+        output_buffer = io.BytesIO()
+        red_fill = PatternFill(
+            start_color="FFC7CE", end_color="FFC7CE", fill_type="solid"
+        )
+        red_font = Font(color="9C0006", bold=True)
+        center_alignment = Alignment(horizontal="center", vertical="center")
+        header_fill = PatternFill(
+            start_color="DDEBF7", end_color="DDEBF7", fill_type="solid"
+        )
+        header_font = Font(name="Calibri", size=11, bold=True, color="1F497D")
+
+        with pd.ExcelWriter(output_buffer, engine="openpyxl") as writer:
+            df_zonda.to_excel(writer, index=False, sheet_name="Zonda_Orders")
+            z_piv1.to_excel(
+                writer, index=False, sheet_name="Zonda_Pivot_Vehicle"
             )
-            tablet_carrier["Zonda_Km"] = (
-                tablet_carrier[t_ext_id]
-                .map(zonda_km_by_sap)
-                .fillna(0.0)
-                .round(2)
+            z_piv2.to_excel(writer, index=False, sheet_name="Zonda_Pivot_SAP")
+
+            df_tourmo.to_excel(writer, index=False, sheet_name="Tourmo_Data")
+            t_piv1.to_excel(
+                writer, index=False, sheet_name="Tourmo_Pivot_Vehicle"
             )
-            tablet_carrier["Ποσοστό Χρήσης Tablet"] = tablet_carrier.apply(
-                lambda r: round(r["Tourmo_Km"] / r["Zonda_Km"], 4)
-                if r["Zonda_Km"] > 0
-                else 0.0,
-                axis=1,
+            t_piv2.to_excel(writer, index=False, sheet_name="Tourmo_Pivot_SAP")
+
+            tablet_truck.to_excel(
+                writer, index=False, sheet_name="Tablet_Use_Truck"
+            )
+            tablet_carrier.to_excel(
+                writer, index=False, sheet_name="Tablet_Use_Carrier"
             )
 
-            # --- ΕΞΑΓΩΓΗ ΣΕ EXCEL BUFFER ---
-            output_buffer = io.BytesIO()
-            red_fill = PatternFill(
-                start_color="FFC7CE", end_color="FFC7CE", fill_type="solid"
-            )
-            red_font = Font(color="9C0006", bold=True)
-            center_alignment = Alignment(
-                horizontal="center", vertical="center"
-            )
-            header_fill = PatternFill(
-                start_color="DDEBF7", end_color="DDEBF7", fill_type="solid"
-            )
-            header_font = Font(
-                name="Calibri", size=11, bold=True, color="1F497D"
-            )
+            for sheet_name in writer.sheets.keys():
+                ws = writer.sheets[sheet_name]
+                ws.freeze_panes = "A2"
+                ws.auto_filter.ref = ws.dimensions
 
-            with pd.ExcelWriter(output_buffer, engine="openpyxl") as writer:
-                df_zonda.to_excel(
-                    writer, index=False, sheet_name="Zonda_Orders"
-                )
-                z_piv1.to_excel(
-                    writer, index=False, sheet_name="Zonda_Pivot_Vehicle"
-                )
-                z_piv2.to_excel(
-                    writer, index=False, sheet_name="Zonda_Pivot_SAP"
-                )
+                for cell in ws[1]:
+                    cell.fill = header_fill
+                    cell.font = header_font
+                    cell.alignment = center_alignment
 
-                df_tourmo.to_excel(
-                    writer, index=False, sheet_name="Tourmo_Data"
-                )
-                t_piv1.to_excel(
-                    writer, index=False, sheet_name="Tourmo_Pivot_Vehicle"
-                )
-                t_piv2.to_excel(
-                    writer, index=False, sheet_name="Tourmo_Pivot_SAP"
-                )
-
-                tablet_truck.to_excel(
-                    writer, index=False, sheet_name="Tablet_Use_Truck"
-                )
-                tablet_carrier.to_excel(
-                    writer, index=False, sheet_name="Tablet_Use_Carrier"
-                )
-
-                for sheet_name in writer.sheets.keys():
-                    ws = writer.sheets[sheet_name]
-                    ws.freeze_panes = "A2"
-                    ws.auto_filter.ref = ws.dimensions
-
-                    for cell in ws[1]:
-                        cell.fill = header_fill
-                        cell.font = header_font
+                for row in ws.iter_rows(
+                    min_row=2,
+                    max_row=ws.max_row,
+                    min_col=1,
+                    max_col=ws.max_column,
+                ):
+                    for cell in row:
                         cell.alignment = center_alignment
 
-                    for row in ws.iter_rows(
-                        min_row=2,
-                        max_row=ws.max_row,
-                        min_col=1,
-                        max_col=ws.max_column,
+                if sheet_name in ["Tablet_Use_Truck", "Tablet_Use_Carrier"]:
+                    pct_col_idx = ws.max_column
+                    for row_idx in range(2, ws.max_row + 1):
+                        cell = ws.cell(row=row_idx, column=pct_col_idx)
+                        cell.number_format = "0.0%"
+
+                for col in ws.columns:
+                    h_val = str(col[0].value or "")
+                    m_len = max(len(str(cell.value or "")) for cell in col)
+                    c_letter = openpyxl.utils.get_column_letter(col[0].column)
+                    if (
+                        "COMM_CARR" in h_val.upper()
+                        or "ΕΞΩΤΕΡΙΚΟ" in h_val.upper()
+                        or "ΑΝΑΓΝΩΡΙΣΤΙΚΟ" in h_val.upper()
                     ):
-                        for cell in row:
-                            cell.alignment = center_alignment
-
-                    if sheet_name in [
-                        "Tablet_Use_Truck",
-                        "Tablet_Use_Carrier",
-                    ]:
-                        pct_col_idx = ws.max_column
-                        for row_idx in range(2, ws.max_row + 1):
-                            cell = ws.cell(row=row_idx, column=pct_col_idx)
-                            cell.number_format = "0.0%"
-
-                    for col in ws.columns:
-                        h_val = str(col[0].value or "")
-                        m_len = max(
-                            len(str(cell.value or "")) for cell in col
+                        ws.column_dimensions[c_letter].width = max(
+                            m_len + 8, 28
                         )
-                        c_letter = openpyxl.utils.get_column_letter(
-                            col[0].column
+                    elif "TABLET" in h_val.upper() or "ΠΟΣΟΣΤΟ" in h_val.upper():
+                        ws.column_dimensions[c_letter].width = max(
+                            m_len + 6, 24
                         )
-                        if (
-                            "COMM_CARR" in h_val.upper()
-                            or "ΕΞΩΤΕΡΙΚΟ" in h_val.upper()
-                            or "ΑΝΑΓΝΩΡΙΣΤΙΚΟ" in h_val.upper()
-                        ):
-                            ws.column_dimensions[c_letter].width = max(
-                                m_len + 8, 28
-                            )
-                        elif (
-                            "TABLET" in h_val.upper()
-                            or "ΠΟΣΟΣΤΟ" in h_val.upper()
-                        ):
-                            ws.column_dimensions[c_letter].width = max(
-                                m_len + 6, 24
-                            )
-                        else:
-                            ws.column_dimensions[c_letter].width = max(
-                                m_len + 5, 14
-                            )
+                    else:
+                        ws.column_dimensions[c_letter].width = max(
+                            m_len + 5, 14
+                        )
 
-                # Κοκκίνισμα Zonda Orders
-                ws_z = writer.sheets["Zonda_Orders"]
-                d_idx = None
-                for idx, col_name in enumerate(df_zonda.columns, start=1):
-                    if col_name == z_dist:
-                        d_idx = idx
-                        break
-                if d_idx:
-                    for row_idx in range(2, ws_z.max_row + 1):
-                        if (row_idx - 2) < len(is_dist_changed_zonda):
-                            if is_dist_changed_zonda[row_idx - 2]:
-                                d_cell = ws_z.cell(
-                                    row=row_idx, column=d_idx
-                                )
-                                d_cell.fill = red_fill
-                                d_cell.font = red_font
-
-            st.success("✅ Η επεξεργασία ολοκληρώθηκε με επιτυχία!")
-
-            # Στατιστικά KPI
-            m1, m2, m3 = st.columns(3)
-            m1.metric("Παραγγελίες Zonda", len(df_zonda))
-            m2.metric("Ενεργά Οχήματα Tourmo", len(t_piv1))
-            avg_usage = tablet_truck["Ποσοστό Χρήσης Tablet"].mean() * 100
-            m3.metric("Μέση Χρήση Tablet", f"{avg_usage:.1f}%")
-
-            # Κουμπί Λήψης
-            st.download_button(
-                label="📥 Λήψη Ενιαίου Αρχείου Excel (8 Καρτέλες)",
-                data=output_buffer.getvalue(),
-                file_name="Logistics_Combined_Report.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            )
-
-            if alerts_zonda:
-                with st.expander(
-                    "⚠️ Ειδοποιήσεις (Παραγγελίες με συντεταγμένες 0.0)"
-                ):
-                    for a in alerts_zonda:
-                        st.warning(a)
+            # Highlight αλλαγών στο Zonda
+            ws_z = writer.sheets["Zonda_Orders"]
+            d_idx = None
+            for idx, col_name in enumerate(df_zonda.columns, start=1):
+                if col_na
