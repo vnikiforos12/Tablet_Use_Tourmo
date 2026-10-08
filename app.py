@@ -811,4 +811,90 @@ if file_zonda and file_tourmo:
             ws_z = writer.sheets["Zonda_Orders"]
             d_idx = None
             for idx, col_name in enumerate(df_zonda.columns, start=1):
-                if col_na
+                if col_name == z_dist:
+                    d_idx = idx
+                    break
+            if d_idx:
+                for row_idx in range(2, ws_z.max_row + 1):
+                    if (row_idx - 2) < len(is_dist_changed_zonda):
+                        if is_dist_changed_zonda[row_idx - 2]:
+                            d_cell = ws_z.cell(row=row_idx, column=d_idx)
+                            d_cell.fill = red_fill
+                            d_cell.font = red_font
+
+        progress_bar.progress(100)
+        status_text.text("Ολοκληρώθηκε!")
+        time.sleep(0.5)
+        progress_bar.empty()
+        status_text.empty()
+
+        st.success(
+            "🎉 **Η ενοποίηση και ο υπολογισμός ολοκληρώθηκαν με επιτυχία!**"
+        )
+
+        # Dashboard KPIs
+        k1, k2, k3, k4 = st.columns(4)
+        with k1:
+            st.markdown(
+                f"""<div class="metric-card"><div class="metric-label">Παραγγελίες Zonda</div><div class="metric-value">{len(df_zonda):,}</div></div>""",
+                unsafe_allow_html=True,
+            )
+        with k2:
+            st.markdown(
+                f"""<div class="metric-card"><div class="metric-label">Στόλος Tourmo</div><div class="metric-value">{len(t_piv1):,}</div></div>""",
+                unsafe_allow_html=True,
+            )
+        with k3:
+            st.markdown(
+                f"""<div class="metric-card"><div class="metric-label">Χιλιόμετρα Zonda (x2)</div><div class="metric-value">{df_zonda[z_dist].sum():,.1f}</div></div>""",
+                unsafe_allow_html=True,
+            )
+        with k4:
+            valid_pct = tablet_truck[tablet_truck["Zonda_Km"] > 0][
+                "Ποσοστό Χρήσης Tablet"
+            ]
+            avg_u = (valid_pct.mean() * 100) if len(valid_pct) > 0 else 0.0
+            st.markdown(
+                f"""<div class="metric-card"><div class="metric-label">Μέση Χρήση Tablet</div><div class="metric-value">{avg_u:.1f}%</div></div>""",
+                unsafe_allow_html=True,
+            )
+
+        st.markdown("<br>", unsafe_allow_html=True)
+
+        # Κουμπί Λήψης
+        st.download_button(
+            label="📥 Λήψη Ενιαίας Αναφοράς Excel (Logistics_Combined_Report.xlsx)",
+            data=output_buffer.getvalue(),
+            file_name="Logistics_Combined_Report.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+
+        # Προεπισκόπηση Αποτελεσμάτων
+        st.markdown("---")
+        st.markdown("### 🔍 Προεπισκόπηση Δεδομένων")
+        tab_v, tab_c, tab_a = st.tabs(
+            [
+                "🚛 Χρήση ανά Όχημα (Tablet_Use_Truck)",
+                "🏢 Χρήση ανά Μεταφορέα (Tablet_Use_Carrier)",
+                "⚠️ Ειδοποιήσεις Συντεταγμένων",
+            ]
+        )
+
+        with tab_v:
+            st.dataframe(
+                tablet_truck.style.format({"Ποσοστό Χρήσης Tablet": "{:.1%}"}),
+                use_container_width=True,
+            )
+        with tab_c:
+            st.dataframe(
+                tablet_carrier.style.format(
+                    {"Ποσοστό Χρήσης Tablet": "{:.1%}"}
+                ),
+                use_container_width=True,
+            )
+        with tab_a:
+            if alerts_zonda:
+                for a in alerts_zonda:
+                    st.warning(a)
+            else:
+                st.info("Δεν εντοπίστηκαν παραγγελίες με συντεταγμένες 0.0.")
