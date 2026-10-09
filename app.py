@@ -60,7 +60,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# Keep-Alive Heartbeat (Prevents browser timeout)
+# Keep-Alive Heartbeat
 components.html(
     """<script>setInterval(function(){window.dispatchEvent(new Event('resize'));fetch(window.location.href,{mode:'no-cors'}).catch(()=>{});},40000);</script>""",
     height=0,
@@ -267,7 +267,7 @@ def read_csv_smart(raw_bytes):
 
 
 # ==============================================================================
-# 3. UI: FILE UPLOAD
+# 3. STAGE 1 (OPTIONAL): MERGE TWO ZONDA CSV FILES
 # ==============================================================================
 with st.sidebar:
     st.image(
@@ -280,21 +280,94 @@ with st.sidebar:
     st.markdown("📍 **Origin Depots:** 9 Loading Points")
     st.markdown("🚢 **Maritime Connections:** 18 Sea/Ferry Hubs")
 
-col1, col2 = st.columns(2)
-with col1:
-    file_zonda = st.file_uploader(
-        "1. Upload Zonda CSV (Orders Data)", type=["csv"], key="zonda"
+# Session state initialization for merged Zonda
+if "merged_zonda_df" not in st.session_state:
+    st.session_state["merged_zonda_df"] = None
+
+with st.expander("🛠️ Stage 1 (Optional): Merge Two Zonda CSV Files", expanded=False):
+    st.markdown(
+        "Upload two Zonda CSV files with identical headers. The app will concatenate all rows beneath a single header without data loss."
     )
-with col2:
-    file_tourmo = st.file_uploader(
-        "2. Upload TOURMO CSV (Telematics Data)", type=["csv"], key="tourmo"
+    m_col1, m_col2 = st.columns(2)
+    with m_col1:
+        f_z1 = st.file_uploader("Upload Zonda CSV #1", type=["csv"], key="merge_z1")
+    with m_col2:
+        f_z2 = st.file_uploader("Upload Zonda CSV #2", type=["csv"], key="merge_z2")
+
+    if f_z1 and f_z2:
+        if st.button("🔗 Merge Zonda Files into Single CSV"):
+            df_z1 = read_csv_smart(f_z1.getvalue())
+            df_z2 = read_csv_smart(f_z2.getvalue())
+
+            if df_z1 is not None and df_z2 is not None:
+                # Concat both datasets
+                df_merged_zonda = pd.concat([df_z1, df_z2], ignore_index=True)
+                st.session_state["merged_zonda_df"] = df_merged_zonda
+
+                st.success(
+                    f"✅ Merged successfully! File #1 ({len(df_z1):,} rows) + File #2 ({len(df_z2):,} rows) = **{len(df_merged_zonda):,} total rows**."
+                )
+
+                # Export to CSV with UTF-8 BOM and semicolon (standard Zonda format)
+                csv_buffer = io.BytesIO()
+                df_merged_zonda.to_csv(
+                    csv_buffer, sep=";", index=False, encoding="utf-8-sig"
+                )
+
+                st.download_button(
+                    label="📥 Download Merged File: ZONDA_MERGED.csv",
+                    data=csv_buffer.getvalue(),
+                    file_name="ZONDA_MERGED.csv",
+                    mime="text/csv",
+                )
+            else:
+                st.error("Error reading one of the CSV files for merging.")
+
+st.markdown("---")
+
+# ==============================================================================
+# 4. STAGE 2: MAIN RECONCILIATION
+# ==============================================================================
+st.subheader("📑 Stage 2: Upload Files for Reconciliation")
+
+# Option to use auto-merged file from Stage 1 if available
+use_auto_merged = False
+if st.session_state["merged_zonda_df"] is not None:
+    use_auto_merged = st.checkbox(
+        f"✅ Use the Merged Zonda CSV from Stage 1 ({len(st.session_state['merged_zonda_df']):,} rows) automatically",
+        value=True,
     )
 
-if file_zonda and file_tourmo:
+col1, col2 = st.columns(2)
+with col1:
+    if use_auto_merged:
+        st.info("Using ZONDA_MERGED dataset from Stage 1 above.")
+        file_zonda = None
+    else:
+        file_zonda = st.file_uploader(
+            "1. Upload Zonda CSV (Orders Data)", type=["csv"], key="zonda_main"
+        )
+
+with col2:
+    file_tourmo = st.file_uploader(
+        "2. Upload TOURMO CSV (Telematics Data)", type=["csv"], key="tourmo_main"
+    )
+
+# Proceed if we have Zonda (either auto-merged or uploaded) and Tourmo
+has_zonda = use_auto_merged or (file_zonda is not None)
+has_tourmo = file_tourmo is not None
+
+if has_zonda and has_tourmo:
     st.markdown("<br>", unsafe_allow_html=True)
     if st.button("🚀 Process Data & Generate Consolidated Report"):
         with st.spinner("Processing datasets and calculating road distances..."):
-            df_zonda = read_csv_smart(file_zonda.getvalue())
+            # Load Zonda
+            if use_auto_merged:
+                df_zonda = st.session_state["merged_zonda_df"].copy()
+            else:
+                df_zonda = read_csv_smart(file_zonda.getvalue())
+
+            # Load Tourmo
             df_tourmo = read_csv_smart(file_tourmo.getvalue())
 
             if df_zonda is None or df_tourmo is None:
@@ -396,7 +469,9 @@ if file_zonda and file_tourmo:
                     if pd.isna(val) or str(val).strip() == "":
                         return ""
                     v_str = str(val).strip()
-                    pattern = r"([A-Za-zΑ-Ωα-ω]{3}\s*\d{4}|[A-Za-z]{1,2}\s*\d{2,3}\s*[A-Za-z]{3})"
+                    pattern = (
+                        r"([A-Za-zΑ-Ωα-ω]{3}\s*\d{4}|[A-Za-z]{1,2}\s*\d{2,3}\s*[A-Za-z]{3})"
+                    )
                     m = re.search(pattern, v_str)
                     p = (
                         m.group(1).replace(" ", "").upper()
@@ -425,7 +500,7 @@ if file_zonda and file_tourmo:
                 cols.insert(c_idx, z_sap)
                 df_zonda = df_zonda[cols]
 
-            # Collect detailed notifications
+            # Detailed notifications
             zero_coord_alerts = []
             modified_distance_alerts = []
             is_dist_changed_zonda = []
@@ -877,7 +952,6 @@ if file_zonda and file_tourmo:
                     writer, index=False, sheet_name="Zonda_Pivot_SAP"
                 )
 
-                # Rename columns for Tourmo sheets to clean English
                 df_tourmo_export = df_tourmo.rename(
                     columns={
                         t_parent_group: "Parent_Group",
