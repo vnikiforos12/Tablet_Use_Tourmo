@@ -10,11 +10,14 @@ import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
 
-# 1. Ρύθμιση Σελίδας & Στυλ ΗΡΑΚΛΗΣ
+# ==============================================================================
+# 1. ΡΥΘΜΙΣΗ ΣΕΛΙΔΑΣ & ΕΤΑΙΡΙΚΟ ΣΤΥΛ ΟΜΙΛΟΥ ΗΡΑΚΛΗΣ
+# ==============================================================================
 st.set_page_config(
     page_title="Όμιλος ΗΡΑΚΛΗΣ | Logistics & Telematics Reconciler",
     page_icon="🏛️",
     layout="wide",
+    initial_sidebar_state="expanded",
 )
 
 st.markdown(
@@ -45,7 +48,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# Keep-Alive Heartbeat
+# Keep-Alive Heartbeat (Prevents session timeout)
 components.html(
     """<script>setInterval(function(){window.dispatchEvent(new Event('resize'));fetch(window.location.href,{mode:'no-cors'}).catch(()=>{});},40000);</script>""",
     height=0,
@@ -55,13 +58,15 @@ st.markdown(
     """
     <div class="heracles-header">
         <h1>🏛️ ΟΜΙΛΟΣ ΗΡΑΚΛΗΣ | Logistics & Telematics Reconciler</h1>
-        <p>Έκδοση 2.0 (Ενημερωμένη: Cap 100%, 0% Κοκκίνισμα, Στρογγυλοποίηση & Γονική Ομάδα δεξιά)</p>
+        <p>Έκδοση 3.0 (Tablet Tabs στην αρχή | 100% αν Zonda=0 | Ξεχωριστό Sky-Blue χρώμα | Cap 100%)</p>
     </div>
     """,
     unsafe_allow_html=True,
 )
 
-# 2. Χαρτογράφηση
+# ==============================================================================
+# 2. ΧΑΡΤΟΓΡΑΦΗΣΗ ΑΠΟΣΤΑΣΕΩΝ & ΠΛΟΙΩΝ
+# ==============================================================================
 SHIPPING_COORDS = {
     "Μηλάκι οδικές φορτώσεις": (38.379005, 24.065336),
     "ΚΔ ΔΡΑΠΕΤΣΩΝΑΣ": (37.947882, 23.621671),
@@ -206,7 +211,7 @@ def get_osrm_distance(p1, p2):
     try:
         url = f"http://router.project-osrm.org/route/v1/driving/{lon1},{lat1};{lon2},{lat2}?overview=false"
         req = urllib.request.Request(
-            url, headers={"User-Agent": "HeraclesApp/2.0"}
+            url, headers={"User-Agent": "HeraclesApp/3.0"}
         )
         with urllib.request.urlopen(req, timeout=10) as response:
             data = json.loads(response.read().decode())
@@ -249,7 +254,7 @@ with col2:
 
 if file_zonda and file_tourmo:
     if st.button("🚀 Εκτέλεση Επεξεργασίας & Δημιουργία Αναφοράς"):
-        with st.spinner("Επεξεργασία και υπολογισμός αποστάσεων..."):
+        with st.spinner("Επεξεργασία, υπολογισμός αποστάσεων και ενοποίηση..."):
             df_zonda = read_csv_smart(file_zonda.getvalue())
             df_tourmo = read_csv_smart(file_tourmo.getvalue())
 
@@ -426,8 +431,7 @@ if file_zonda and file_tourmo:
                         ):
                             continue
                         if any(
-                            target.upper() in loc_tokens
-                            for target in ferry["names"]
+                            target.upper() in loc_tokens for target in ferry["names"]
                         ):
                             matched_ferry = ferry
                             break
@@ -553,14 +557,11 @@ if file_zonda and file_tourmo:
                     df_tourmo[t_id], errors="coerce"
                 ).astype("Int64")
 
-            # Ακριβής εύρεση στηλών Tourmo
             t_parent_group = find_t_contains("Γονική Ομάδα")
-            t_group = find_t_exact(
-                "Ομάδα"
-            )  # Ακριβές όνομα για να μην επιλέγει Εβδομάδα!
+            t_group = find_t_exact("Ομάδα")
             t_veh_col = find_t_exact("Όχημα")
 
-            # 1. Tourmo Pivots (Στρογγυλοποίηση σε ακέραιο)
+            # Tourmo Pivots (Στρογγυλοποίηση σε ακέραιο)
             t_piv1 = (
                 df_tourmo.groupby(
                     [t_parent_group, t_group, t_veh_col], as_index=False
@@ -580,15 +581,12 @@ if file_zonda and file_tourmo:
             t_piv2["Tourmo_Km"] = t_piv2["Tourmo_Km"].round(0)
 
             # --- C. PIVOTS ZONDA (ΜΕ ΓΟΝΙΚΗ ΟΜΑΔΑ ΤΕΡΜΑ ΔΕΞΙΑ) ---
-            # 1. Zonda_Pivot_Vehicle
             z_piv1 = (
                 df_zonda.groupby([z_carrier, z_vehicle], as_index=False)[z_dist]
                 .sum()
                 .rename(columns={z_dist: "Zonda_Km"})
             )
             z_piv1["Zonda_Km"] = z_piv1["Zonda_Km"].round(0)
-
-            # VLOOKUP Γονικής Ομάδας από το Tourmo βάσει Οχήματος
             tourmo_parent_by_veh = (
                 df_tourmo.groupby(t_veh_col)[t_parent_group].first().to_dict()
             )
@@ -596,15 +594,12 @@ if file_zonda and file_tourmo:
                 z_piv1[z_vehicle].map(tourmo_parent_by_veh).fillna("-")
             )
 
-            # 2. Zonda_Pivot_SAP
             z_piv2 = (
                 df_zonda.groupby([z_sap, z_carrier], as_index=False)[z_dist]
                 .sum()
                 .rename(columns={z_dist: "Zonda_Km"})
             )
             z_piv2["Zonda_Km"] = z_piv2["Zonda_Km"].round(0)
-
-            # VLOOKUP Γονικής Ομάδας από το Tourmo βάσει SAP
             tourmo_parent_by_sap = (
                 df_tourmo.groupby(t_ext_id)[t_parent_group].first().to_dict()
             )
@@ -614,19 +609,16 @@ if file_zonda and file_tourmo:
 
             # --- D. ΣΥΓΚΡΙΤΙΚΕΣ ΚΑΡΤΕΛΕΣ TABLET USAGE (ΒΑΣΗ TOURMO) ---
             def calc_usage_pct(t_val, z_val):
-                # 1. Αν και τα δύο είναι 0 km -> 100%
-                if t_val == 0 and z_val == 0:
-                    return 1.0
-                # 2. Αν Zonda == 0 και Tourmo > 0 -> 0%
+                # ΝΕΟΣ ΚΑΝΟΝΑΣ: Αν Zonda_Km == 0 (είτε Tourmo=0 είτε Tourmo>0) -> 100%
                 if z_val == 0:
-                    return 0.0
+                    return 1.0
                 pct = t_val / z_val
-                # 3. Αν ξεπερνά το 100% -> γίνεται 100% (Cap)
+                # Cap at 100%
                 if pct > 1.0:
                     return 1.0
                 return round(pct, 2)
 
-            # Tablet_Use_Truck
+            # 1. Tablet_Use_Truck
             tablet_truck = t_piv1.copy()
             zonda_km_by_veh = (
                 df_zonda.groupby(z_vehicle)[z_dist].sum().round(0).to_dict()
@@ -641,7 +633,7 @@ if file_zonda and file_tourmo:
                 lambda r: calc_usage_pct(r["Tourmo_Km"], r["Zonda_Km"]), axis=1
             )
 
-            # Tablet_Use_Carrier
+            # 2. Tablet_Use_Carrier
             tablet_carrier = t_piv2.copy()
             zonda_km_by_sap = (
                 df_zonda.groupby(z_sap)[z_dist].sum().round(0).to_dict()
@@ -658,6 +650,8 @@ if file_zonda and file_tourmo:
 
             # --- E. EXCEL WRITING & FORMATTING ---
             output_buffer = io.BytesIO()
+
+            # Styling definitions
             red_fill = PatternFill(
                 start_color="FFC7CE", end_color="FFC7CE", fill_type="solid"
             )
@@ -665,14 +659,33 @@ if file_zonda and file_tourmo:
             center_alignment = Alignment(
                 horizontal="center", vertical="center"
             )
-            header_fill = PatternFill(
+
+            # Standard light blue header for generic sheets
+            std_header_fill = PatternFill(
                 start_color="DDEBF7", end_color="DDEBF7", fill_type="solid"
             )
-            header_font = Font(
+            std_header_font = Font(
                 name="Calibri", size=11, bold=True, color="1F497D"
             )
 
+            # UNIQUE vibrant Sky-Blue header for the 2 Tablet Usage sheets
+            tablet_header_fill = PatternFill(
+                start_color="BEE3F8", end_color="BEE3F8", fill_type="solid"
+            )
+            tablet_header_font = Font(
+                name="Calibri", size=11, bold=True, color="003E6B"
+            )
+
             with pd.ExcelWriter(output_buffer, engine="openpyxl") as writer:
+                # 🌟 ΠΡΩΤΕΣ ΟΙ 2 ΚΑΡΤΕΛΕΣ TABLET USAGE ΣΤΗΝ ΑΡΧΗ ΤΟΥ ΑΡΧΕΙΟΥ! 🌟
+                tablet_truck.to_excel(
+                    writer, index=False, sheet_name="Tablet_Use_Truck"
+                )
+                tablet_carrier.to_excel(
+                    writer, index=False, sheet_name="Tablet_Use_Carrier"
+                )
+
+                # Στη συνέχεια οι υπόλοιπες καρτέλες
                 df_zonda.to_excel(
                     writer, index=False, sheet_name="Zonda_Orders"
                 )
@@ -693,22 +706,35 @@ if file_zonda and file_tourmo:
                     writer, index=False, sheet_name="Tourmo_Pivot_SAP"
                 )
 
-                tablet_truck.to_excel(
-                    writer, index=False, sheet_name="Tablet_Use_Truck"
-                )
-                tablet_carrier.to_excel(
-                    writer, index=False, sheet_name="Tablet_Use_Carrier"
-                )
-
-                # Styling σε όλες τις καρτέλες
+                # Μορφοποίηση όλων των καρτελών
                 for sheet_name in writer.sheets.keys():
                     ws = writer.sheets[sheet_name]
                     ws.freeze_panes = "A2"
                     ws.auto_filter.ref = ws.dimensions
 
+                    # Ειδικό Sky-Blue header & Tab Color για τα 2 πρώτα Tablet tabs
+                    is_tablet_tab = sheet_name in [
+                        "Tablet_Use_Truck",
+                        "Tablet_Use_Carrier",
+                    ]
+                    h_fill = (
+                        tablet_header_fill
+                        if is_tablet_tab
+                        else std_header_fill
+                    )
+                    h_font = (
+                        tablet_header_font
+                        if is_tablet_tab
+                        else std_header_font
+                    )
+
+                    if is_tablet_tab:
+                        # Χρώμα καρτέλας κάτω στο Excel (Unique Sky/Cyan Blue)
+                        ws.sheet_properties.tabColor = "0072CE"
+
                     for cell in ws[1]:
-                        cell.fill = header_fill
-                        cell.font = header_font
+                        cell.fill = h_fill
+                        cell.font = h_font
                         cell.alignment = center_alignment
 
                     for row in ws.iter_rows(
@@ -720,17 +746,22 @@ if file_zonda and file_tourmo:
                         for cell in row:
                             cell.alignment = center_alignment
 
-                    # Στις καρτέλες Tablet Usage: Μορφοποίηση 0% και ΚΟΚΚΙΝΙΣΜΑ του 0%
-                    if sheet_name in [
-                        "Tablet_Use_Truck",
-                        "Tablet_Use_Carrier",
-                    ]:
-                        pct_col_idx = ws.max_column
+                    # Μορφοποίηση ποσοστού και κοκκίνισμα του 0%
+                    if is_tablet_tab:
+                        # Βρίσκουμε τη στήλη του ποσοστού
+                        pct_col_idx = None
+                        for col_idx, col in enumerate(ws.columns, start=1):
+                            if "ΠΟΣΟΣΤΟ" in str(col[0].value or "").upper():
+                                pct_col_idx = col_idx
+                                break
+                        if not pct_col_idx:
+                            pct_col_idx = ws.max_column
+
                         for row_idx in range(2, ws.max_row + 1):
                             cell = ws.cell(row=row_idx, column=pct_col_idx)
                             cell.number_format = "0%"
 
-                            # Αν το ποσοστό είναι 0 -> ΚΟΚΚΙΝΙΣΕ ΤΟ ΚΕΛΙ!
+                            # Αν το ποσοστό είναι 0 -> ΚΟΚΚΙΝΙΣΕ ΤΟ!
                             if (
                                 cell.value is not None
                                 and isinstance(cell.value, (int, float))
@@ -804,10 +835,10 @@ if file_zonda and file_tourmo:
 
             st.markdown("<br>", unsafe_allow_html=True)
 
-            # ΝΕΟ ΟΝΟΜΑ ΑΡΧΕΙΟΥ ΓΙΑ ΝΑ ΞΕΧΩΡΙΖΕΙ ΑΜΕΣΩΣ!
+            # Download Button (v3)
             st.download_button(
-                label="📥 Λήψη Νέας Αναφοράς Excel (Logistics_Report_NEW_V2.xlsx)",
+                label="📥 Λήψη Αναφοράς Excel (Logistics_Report_v3_NEW.xlsx)",
                 data=output_buffer.getvalue(),
-                file_name="Logistics_Report_NEW_V2.xlsx",
+                file_name="Logistics_Report_v3_NEW.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             )
