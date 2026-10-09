@@ -58,7 +58,7 @@ st.markdown(
     """
     <div class="heracles-header">
         <h1>🏛️ ΟΜΙΛΟΣ ΗΡΑΚΛΗΣ | Logistics & Telematics Reconciler</h1>
-        <p>Έκδοση 4.0 (Full Outer Join: Συμπερίληψη όλων των οχημάτων/μεταφορέων Zonda με 0% και κόκκινο χρώμα αν λείπουν από το Tourmo)</p>
+        <p>Έκδοση 4.1 (Χρωματισμός Ποσοστών: 🟢 ≥90% Πράσινο, 🟡 <30% Κίτρινο, 🔴 0% Κόκκινο)</p>
     </div>
     """,
     unsafe_allow_html=True,
@@ -223,7 +223,7 @@ def get_osrm_distance(p1, p2):
     try:
         url = f"http://router.project-osrm.org/route/v1/driving/{lon1},{lat1};{lon2},{lat2}?overview=false"
         req = urllib.request.Request(
-            url, headers={"User-Agent": "HeraclesApp/4.0"}
+            url, headers={"User-Agent": "HeraclesApp/4.1"}
         )
         with urllib.request.urlopen(req, timeout=10) as response:
             data = json.loads(response.read().decode())
@@ -630,7 +630,7 @@ if file_zonda and file_tourmo:
                     return 1.0  # Cap at 100%
                 return round(pct, 2)
 
-            # 1. Tablet_Use_Truck (FULL OUTER JOIN ώστε να περιλαμβάνονται και όσα λείπουν από το Tourmo)
+            # 1. Tablet_Use_Truck
             z_trucks_agg = (
                 df_zonda.groupby(z_vehicle, as_index=False)
                 .agg({z_carrier: "first", z_shipping: "first", z_dist: "sum"})
@@ -655,7 +655,6 @@ if file_zonda and file_tourmo:
                 tablet_truck["Zonda_Km"].fillna(0.0).round(0)
             )
 
-            # Συμπλήρωση Ονόματος Μεταφορέα & Γονικής Ομάδας από Zonda αν λείπουν από Tourmo
             tablet_truck[t_group] = tablet_truck[t_group].fillna(
                 tablet_truck["Z_Carrier"]
             )
@@ -671,7 +670,6 @@ if file_zonda and file_tourmo:
                 lambda r: calc_usage_pct(r["Tourmo_Km"], r["Zonda_Km"]), axis=1
             )
 
-            # Ταξινόμηση και σωστή σειρά στηλών
             tablet_truck = tablet_truck[
                 [
                     t_parent_group,
@@ -683,7 +681,7 @@ if file_zonda and file_tourmo:
                 ]
             ].sort_values(by=[t_parent_group, t_group, t_veh_col])
 
-            # 2. Tablet_Use_Carrier (FULL OUTER JOIN)
+            # 2. Tablet_Use_Carrier
             z_carriers_agg = (
                 df_zonda.groupby(z_sap, as_index=False)
                 .agg({z_carrier: "first", z_shipping: "first", z_dist: "sum"})
@@ -739,10 +737,25 @@ if file_zonda and file_tourmo:
             # --- E. EXCEL WRITING & FORMATTING ---
             output_buffer = io.BytesIO()
 
+            # 🎨 ΧΡΩΜΑΤΑ ΣΗΜΑΝΣΗΣ (TRAFFIC LIGHT SYSTEM)
+            # Κόκκινο (0%)
             red_fill = PatternFill(
                 start_color="FFC7CE", end_color="FFC7CE", fill_type="solid"
             )
             red_font = Font(color="9C0006", bold=True)
+
+            # Κίτρινο (< 30%)
+            yellow_fill = PatternFill(
+                start_color="FFEB9C", end_color="FFEB9C", fill_type="solid"
+            )
+            yellow_font = Font(color="9C6500", bold=True)
+
+            # Πράσινο (≥ 90%)
+            green_fill = PatternFill(
+                start_color="C6EFCE", end_color="C6EFCE", fill_type="solid"
+            )
+            green_font = Font(color="006100", bold=True)
+
             center_alignment = Alignment(
                 horizontal="center", vertical="center"
             )
@@ -828,7 +841,7 @@ if file_zonda and file_tourmo:
                         for cell in row:
                             cell.alignment = center_alignment
 
-                    # Μορφοποίηση ποσοστού και κοκκίνισμα του 0%
+                    # 🎨 ΧΡΩΜΑΤΙΣΜΟΣ ΠΟΣΟΣΤΩΝ ΣΤΙΣ ΚΑΡΤΕΛΕΣ TABLET USAGE
                     if is_tablet_tab:
                         pct_col_idx = None
                         for col_idx, col in enumerate(ws.columns, start=1):
@@ -842,14 +855,22 @@ if file_zonda and file_tourmo:
                             cell = ws.cell(row=row_idx, column=pct_col_idx)
                             cell.number_format = "0%"
 
-                            # Αν το ποσοστό είναι 0 -> ΚΟΚΚΙΝΙΣΕ ΤΟ!
-                            if (
-                                cell.value is not None
-                                and isinstance(cell.value, (int, float))
-                                and cell.value == 0
+                            if cell.value is not None and isinstance(
+                                cell.value, (int, float)
                             ):
-                                cell.fill = red_fill
-                                cell.font = red_font
+                                val = cell.value
+                                # 🔴 0% -> ΚΟΚΚΙΝΟ
+                                if val == 0:
+                                    cell.fill = red_fill
+                                    cell.font = red_font
+                                # 🟡 < 30% -> ΚΙΤΡΙΝΟ
+                                elif val < 0.30:
+                                    cell.fill = yellow_fill
+                                    cell.font = yellow_font
+                                # 🟢 ≥ 90% -> ΠΡΑΣΙΝΟ
+                                elif val >= 0.90:
+                                    cell.fill = green_fill
+                                    cell.font = green_font
 
                     # Πλάτη στηλών
                     for col in ws.columns:
@@ -916,7 +937,7 @@ if file_zonda and file_tourmo:
 
             st.markdown("<br>", unsafe_allow_html=True)
 
-            # Download Button (v4)
+            # Download Button (v4.1)
             st.download_button(
                 label="📥 Λήψη Αναφοράς Excel (Logistics_Report_v4_COMPLETE.xlsx)",
                 data=output_buffer.getvalue(),
