@@ -1,3 +1,4 @@
+import base64
 import io
 import json
 import os
@@ -22,40 +23,95 @@ FAVICON = (
 
 st.set_page_config(
     page_title="HERACLES GROUP | Tablet Use Tourmo",
-    page_icon=FAVICON,  # Uses favicon.png from your repository
+    page_icon=FAVICON,
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
-# Custom CSS matching the Rolling Scorecard corporate theme
+# Helper function to convert local image to Base64 (Guaranteed to load)
+def get_base64_image(image_path):
+    if os.path.exists(image_path):
+        with open(image_path, "rb") as f:
+            data = f.read()
+        ext = image_path.split(".")[-1].lower()
+        mime = "image/png" if ext == "png" else f"image/{ext}"
+        return f"data:{mime};base64,{base64.b64encode(data).decode()}"
+    return None
+
+# Locate logo.png
+logo_src = (
+    get_base64_image("logo.png")
+    or get_base64_image("holcim.png")
+    or get_base64_image("logo.jpg")
+    or "https://cdn.worldvectorlogo.com/logos/holcim.svg"
+)
+
+# Custom CSS matching the Rolling Scorecard theme exactly
 st.markdown(
     """
     <style>
         .main {
             background-color: #F8FAFC;
         }
-        /* Top Navigation Header Card */
-        .holcim-header-card {
-            background: linear-gradient(135deg, #002B49 0%, #004B7A 50%, #005A36 100%);
-            padding: 22px 28px;
+        /* Exact Rolling Scorecard Banner */
+        .rolling-banner {
+            background-color: #071B2F;
+            border-left: 7px solid #00C853;
             border-radius: 12px;
-            color: white;
-            box-shadow: 0 4px 16px rgba(0, 43, 73, 0.15);
-            border-left: 8px solid #97D700;
+            padding: 22px 28px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 8px 24px rgba(7, 27, 47, 0.25);
+            margin-bottom: 25px;
         }
-        .holcim-header-card h1 {
-            color: #FFFFFF !important;
-            font-size: 25px !important;
-            font-weight: 800 !important;
-            margin: 0 !important;
-            letter-spacing: 0.5px;
+        .banner-content {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
         }
-        .holcim-header-card p {
-            color: #E2E8F0 !important;
-            font-size: 13.5px !important;
-            margin-top: 5px !important;
-            margin-bottom: 0 !important;
+        .banner-tag {
+            display: inline-block;
+            background-color: rgba(0, 200, 83, 0.12);
+            border: 1px solid #00C853;
+            color: #00E676;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.8px;
+            text-transform: uppercase;
+            padding: 4px 12px;
+            border-radius: 20px;
+            width: fit-content;
+        }
+        .banner-title {
+            color: #FFFFFF;
+            font-size: 26px;
+            font-weight: 800;
+            letter-spacing: 0.3px;
+            margin: 0;
+            line-height: 1.2;
+        }
+        .banner-subtitle {
+            color: #94A3B8;
+            font-size: 13.5px;
+            margin: 0;
             font-weight: 400;
+        }
+        .banner-logo-box {
+            background-color: #FFFFFF;
+            border-radius: 10px;
+            padding: 8px 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            min-width: 170px;
+            max-width: 230px;
+        }
+        .banner-logo-box img {
+            max-height: 48px;
+            max-width: 100%;
+            object-fit: contain;
         }
         /* Metric KPI Cards */
         .metric-card {
@@ -63,14 +119,14 @@ st.markdown(
             padding: 16px 20px;
             border-radius: 10px;
             border: 1px solid #E2E8F0;
-            border-top: 4px solid #002B49;
+            border-top: 4px solid #071B2F;
             text-align: center;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+            box-shadow: 0 2px 6px rgba(0,0,0,0.04);
         }
         .metric-value {
             font-size: 24px;
             font-weight: 800;
-            color: #002B49;
+            color: #071B2F;
             margin-top: 4px;
         }
         .metric-label {
@@ -81,58 +137,47 @@ st.markdown(
         }
         /* Primary Corporate Action Button */
         .stButton>button {
-            background: linear-gradient(135deg, #002B49 0%, #005A36 100%) !important;
+            background: linear-gradient(135deg, #071B2F 0%, #004B7A 100%) !important;
             color: white !important;
             font-weight: 700 !important;
             font-size: 16px !important;
             padding: 12px 28px !important;
             border-radius: 8px !important;
             border: none !important;
-            box-shadow: 0 4px 12px rgba(0, 43, 73, 0.25) !important;
+            box-shadow: 0 4px 12px rgba(7, 27, 47, 0.25) !important;
             transition: all 0.3s ease !important;
         }
         .stButton>button:hover {
             transform: translateY(-2px);
-            box-shadow: 0 6px 16px rgba(0, 90, 54, 0.35) !important;
+            box-shadow: 0 6px 16px rgba(0, 200, 83, 0.3) !important;
         }
     </style>
     """,
     unsafe_allow_html=True,
 )
 
-# Keep-Alive Heartbeat (Prevents browser timeout)
+# Keep-Alive Heartbeat
 components.html(
     """<script>setInterval(function(){window.dispatchEvent(new Event('resize'));fetch(window.location.href,{mode:'no-cors'}).catch(()=>{});},40000);</script>""",
     height=0,
 )
 
-
-# Helper function to render logo.png on the right
-def render_logo(width=160):
-    if os.path.exists("logo.png"):
-        st.image("logo.png", width=width)
-    else:
-        st.image(
-            "https://cdn.worldvectorlogo.com/logos/holcim.svg", width=width
-        )
-
-
-# 🌟 HEADER LAYOUT: TITLE ON THE LEFT — logo.png ON THE RIGHT 🌟
-h_col1, h_col2 = st.columns([5, 1.2])
-with h_col1:
-    st.markdown(
-        """
-        <div class="holcim-header-card">
-            <h1>🏛️ HERACLES GROUP | Tablet Use Tourmo</h1>
-            <p>Logistics Reconciliation: Zonda Orders vs. TOURMO Telematics & Real Road Mileage Calculation</p>
+# 🌟 ROLLING SCORECARD EXACT BANNER (WITH LOGO IN WHITE CARD ON THE RIGHT) 🌟
+st.markdown(
+    f"""
+    <div class="rolling-banner">
+        <div class="banner-content">
+            <div class="banner-tag">HERACLES GROUP | SAFETY & LOGISTICS EXCELLENCE</div>
+            <div class="banner-title">HERACLES GROUP | Tablet Use Tourmo</div>
+            <div class="banner-subtitle">Fleet Road Safety Performance Evaluation & Automated Reconciliation</div>
         </div>
-        """,
-        unsafe_allow_html=True,
-    )
-with h_col2:
-    render_logo(width=160)
-
-st.markdown("<br>", unsafe_allow_html=True)
+        <div class="banner-logo-box">
+            <img src="{logo_src}" alt="Heracles Holcim Logo" />
+        </div>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
 
 # ==============================================================================
 # 2. COORDINATES & FERRY CONFIGURATION
@@ -328,7 +373,11 @@ def read_csv_smart(raw_bytes):
 # 3. SIDEBAR & STAGE 1 (OPTIONAL ZONDA MERGE)
 # ==============================================================================
 with st.sidebar:
-    render_logo(width=140)
+    if os.path.exists("logo.png"):
+        st.image("logo.png", width=140)
+    else:
+        st.image("https://cdn.worldvectorlogo.com/logos/holcim.svg", width=140)
+
     st.markdown("### ⚙️ System Status")
     st.info("🟢 **Live Session:** Heartbeat active (No timeout).")
     st.markdown("---")
@@ -549,7 +598,6 @@ if has_zonda and has_tourmo:
                 cols.insert(c_idx, z_sap)
                 df_zonda = df_zonda[cols]
 
-            # Detailed notification tracking
             zero_coord_alerts = []
             modified_distance_alerts = []
             is_dist_changed_zonda = []
@@ -608,7 +656,6 @@ if has_zonda and has_tourmo:
                             matched_ferry = ferry
                             break
 
-                    # 1. Zero coordinates check
                     if s_lat == 0.0 or s_lon == 0.0:
                         final_dist_zonda.append(0.0)
                         is_dist_changed_zonda.append(False)
@@ -629,7 +676,6 @@ if has_zonda and has_tourmo:
                             orig_coords = coords
                             break
 
-                    # 2. Ferry / Island calculation (Subtract sea miles)
                     if matched_ferry and orig_coords:
                         isl_port = matched_ferry["island_port"]
                         if (
@@ -659,7 +705,6 @@ if has_zonda and has_tourmo:
                                 }
                             )
 
-                    # 3. Mainland distance calculated from 0 km
                     elif orig_d == 0.0 and orig_coords:
                         r_km = get_osrm_distance(orig_coords, (s_lat, s_lon))
                         tot_km = round(r_km * 2, 2)
@@ -767,7 +812,6 @@ if has_zonda and has_tourmo:
                     df_tourmo[t_id], errors="coerce"
                 ).astype("Int64")
 
-            # Exact field matching for Tourmo hierarchy
             t_parent_group = find_t_contains("Γονική Ομάδα")
             t_group = find_t_exact("Ομάδα")
             t_veh_col = "Vehicle"
@@ -792,7 +836,7 @@ if has_zonda and has_tourmo:
             )
             t_piv2["Tourmo_Km"] = t_piv2["Tourmo_Km"].round(0)
 
-            # --- C. ZONDA PIVOTS (Parent Group on the far right) ---
+            # --- C. ZONDA PIVOTS (With Parent Group to the far right) ---
             z_piv1 = (
                 df_zonda.groupby([z_carrier, z_vehicle], as_index=False)[z_dist]
                 .sum()
@@ -981,7 +1025,6 @@ if has_zonda and has_tourmo:
             )
 
             with pd.ExcelWriter(output_buffer, engine="openpyxl") as writer:
-                # 🌟 TABLET USAGE SHEETS FIRST 🌟
                 tablet_truck.to_excel(
                     writer, index=False, sheet_name="Tablet_Use_Truck"
                 )
@@ -989,7 +1032,6 @@ if has_zonda and has_tourmo:
                     writer, index=False, sheet_name="Tablet_Use_Carrier"
                 )
 
-                # OTHER SHEETS
                 df_zonda.to_excel(
                     writer, index=False, sheet_name="Zonda_Orders"
                 )
@@ -1142,7 +1184,7 @@ if has_zonda and has_tourmo:
                                 d_cell.fill = red_fill
                                 d_cell.font = red_font
 
-            # Cache results in Session State to prevent reports disappearing upon download
+            # Cache results in Session State
             st.session_state["processed_result"] = {
                 "excel_bytes": output_buffer.getvalue(),
                 "df_zonda_len": len(df_zonda),
