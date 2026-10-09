@@ -75,17 +75,17 @@ st.markdown(
             background-color: rgba(0, 200, 83, 0.12);
             border: 1px solid #00C853;
             color: #00E676;
-            font-size: 11px;
+            font-size: 14px; /* Αυξήθηκε από 11px */
             font-weight: 700;
             letter-spacing: 0.8px;
             text-transform: uppercase;
-            padding: 4px 12px;
+            padding: 6px 16px;
             border-radius: 20px;
             width: fit-content;
         }
         .banner-title {
             color: #FFFFFF;
-            font-size: 27px;
+            font-size: 36px; /* Αυξήθηκε από 27px */
             font-weight: 800;
             letter-spacing: 0.3px;
             margin: 0;
@@ -93,7 +93,7 @@ st.markdown(
         }
         .banner-subtitle {
             color: #94A3B8;
-            font-size: 13.5px;
+            font-size: 16px; /* Αυξήθηκε από 13.5px */
             margin: 0;
             font-weight: 400;
         }
