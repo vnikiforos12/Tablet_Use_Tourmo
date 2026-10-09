@@ -22,13 +22,13 @@ FAVICON = (
 )
 
 st.set_page_config(
-    page_title="HERACLES GROUP | Tablet Use Tourmo",
+    page_title="Tablet Usage Tourmo",
     page_icon=FAVICON,
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
-# Helper function to convert local image to Base64 (Guaranteed to load)
+# Helper function to convert local image to Base64
 def get_base64_image(image_path):
     if os.path.exists(image_path):
         with open(image_path, "rb") as f:
@@ -53,12 +53,12 @@ st.markdown(
         .main {
             background-color: #F8FAFC;
         }
-        /* Exact Rolling Scorecard Banner */
+        /* Rolling Scorecard Exact Banner */
         .rolling-banner {
             background-color: #071B2F;
             border-left: 7px solid #00C853;
             border-radius: 12px;
-            padding: 22px 28px;
+            padding: 24px 32px;
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -85,7 +85,7 @@ st.markdown(
         }
         .banner-title {
             color: #FFFFFF;
-            font-size: 26px;
+            font-size: 27px;
             font-weight: 800;
             letter-spacing: 0.3px;
             margin: 0;
@@ -97,19 +97,21 @@ st.markdown(
             margin: 0;
             font-weight: 400;
         }
+        /* Μεγαλύτερο λευκό πλαίσιο για το λογότυπο */
         .banner-logo-box {
             background-color: #FFFFFF;
-            border-radius: 10px;
-            padding: 8px 18px;
+            border-radius: 12px;
+            padding: 10px 22px;
             display: flex;
             align-items: center;
             justify-content: center;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-            min-width: 170px;
-            max-width: 230px;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+            min-width: 220px;
+            max-width: 320px;
         }
+        /* Μεγαλύτερο μέγεθος εικόνας λογοτύπου */
         .banner-logo-box img {
-            max-height: 48px;
+            max-height: 70px;
             max-width: 100%;
             object-fit: contain;
         }
@@ -162,13 +164,13 @@ components.html(
     height=0,
 )
 
-# 🌟 ROLLING SCORECARD EXACT BANNER (WITH LOGO IN WHITE CARD ON THE RIGHT) 🌟
+# 🌟 BANNER ME NEΕΣ ΕΠΙΚΕΦΑΛΙΔΕΣ ΚΑΙ ΜΕΓΑΛΩΜΕΝΟ LOGO ΣΤΑ ΔΕΞΙΑ 🌟
 st.markdown(
     f"""
     <div class="rolling-banner">
         <div class="banner-content">
-            <div class="banner-tag">HERACLES GROUP | SAFETY & LOGISTICS EXCELLENCE</div>
-            <div class="banner-title">HERACLES GROUP | Tablet Use Tourmo</div>
+            <div class="banner-tag">HERACLES GROUP | LOGISTICS EXCELLENCE</div>
+            <div class="banner-title">Tablet Usage Tourmo</div>
             <div class="banner-subtitle">Fleet Road Safety Performance Evaluation & Automated Reconciliation</div>
         </div>
         <div class="banner-logo-box">
@@ -374,9 +376,9 @@ def read_csv_smart(raw_bytes):
 # ==============================================================================
 with st.sidebar:
     if os.path.exists("logo.png"):
-        st.image("logo.png", width=140)
+        st.image("logo.png", width=150)
     else:
-        st.image("https://cdn.worldvectorlogo.com/logos/holcim.svg", width=140)
+        st.image("https://cdn.worldvectorlogo.com/logos/holcim.svg", width=150)
 
     st.markdown("### ⚙️ System Status")
     st.info("🟢 **Live Session:** Heartbeat active (No timeout).")
@@ -656,6 +658,7 @@ if has_zonda and has_tourmo:
                             matched_ferry = ferry
                             break
 
+                    # 1. Zero coordinates check
                     if s_lat == 0.0 or s_lon == 0.0:
                         final_dist_zonda.append(0.0)
                         is_dist_changed_zonda.append(False)
@@ -676,6 +679,7 @@ if has_zonda and has_tourmo:
                             orig_coords = coords
                             break
 
+                    # 2. Ferry / Island calculation (Subtract sea miles)
                     if matched_ferry and orig_coords:
                         isl_port = matched_ferry["island_port"]
                         if (
@@ -751,7 +755,6 @@ if has_zonda and has_tourmo:
             t_dist = find_t_contains("Απόσταση")
             t_unit = find_t_contains("Μονάδα Μέτρησης")
 
-            # Remove test drivers
             if t_surname:
                 df_tourmo = df_tourmo[
                     ~df_tourmo[t_surname]
@@ -760,7 +763,6 @@ if has_zonda and has_tourmo:
                     .str.contains("test")
                 ].copy()
 
-            # Vehicle Plate = Name + Surname without 'g'
             if t_name and t_surname:
                 c_name = df_tourmo[t_name].astype(str).str.strip()
                 c_sur = df_tourmo[t_surname].astype(str).str.strip()
@@ -774,7 +776,6 @@ if has_zonda and has_tourmo:
                 df_tourmo.insert(n_idx, "Vehicle", comb_v)
                 df_tourmo.drop(columns=[t_name, t_surname], inplace=True)
 
-            # Carrier SAP ID extraction
             t_ext_id = find_t_contains("Εξωτερικό αναγνωριστικό")
             if t_ext_id:
 
@@ -836,7 +837,7 @@ if has_zonda and has_tourmo:
             )
             t_piv2["Tourmo_Km"] = t_piv2["Tourmo_Km"].round(0)
 
-            # --- C. ZONDA PIVOTS (With Parent Group to the far right) ---
+            # --- C. ZONDA PIVOTS (Parent Group on the far right) ---
             z_piv1 = (
                 df_zonda.groupby([z_carrier, z_vehicle], as_index=False)[z_dist]
                 .sum()
@@ -872,7 +873,7 @@ if has_zonda and has_tourmo:
                     return 1.0  # Cap at 100%
                 return round(pct, 2)
 
-            # 1. Tablet_Use_Truck (FULL OUTER JOIN)
+            # 1. Tablet_Use_Truck
             z_trucks_agg = (
                 df_zonda.groupby(z_vehicle, as_index=False)
                 .agg({z_carrier: "first", z_shipping: "first", z_dist: "sum"})
@@ -930,7 +931,7 @@ if has_zonda and has_tourmo:
                 ]
             ].sort_values(by=["Parent_Group", "Carrier_Name", "Vehicle"])
 
-            # 2. Tablet_Use_Carrier (FULL OUTER JOIN)
+            # 2. Tablet_Use_Carrier
             z_carriers_agg = (
                 df_zonda.groupby(z_sap, as_index=False)
                 .agg({z_carrier: "first", z_shipping: "first", z_dist: "sum"})
@@ -1025,6 +1026,7 @@ if has_zonda and has_tourmo:
             )
 
             with pd.ExcelWriter(output_buffer, engine="openpyxl") as writer:
+                # 🌟 TABLET USAGE SHEETS FIRST 🌟
                 tablet_truck.to_excel(
                     writer, index=False, sheet_name="Tablet_Use_Truck"
                 )
@@ -1032,6 +1034,7 @@ if has_zonda and has_tourmo:
                     writer, index=False, sheet_name="Tablet_Use_Carrier"
                 )
 
+                # OTHER SHEETS
                 df_zonda.to_excel(
                     writer, index=False, sheet_name="Zonda_Orders"
                 )
@@ -1076,7 +1079,6 @@ if has_zonda and has_tourmo:
                     writer, index=False, sheet_name="Tourmo_Pivot_SAP"
                 )
 
-                # Style all sheets
                 for sheet_name in writer.sheets.keys():
                     ws = writer.sheets[sheet_name]
                     ws.freeze_panes = "A2"
@@ -1114,7 +1116,6 @@ if has_zonda and has_tourmo:
                         for cell in row:
                             cell.alignment = center_alignment
 
-                    # Traffic-light color styling for percentages
                     if is_tablet_tab:
                         pct_col_idx = None
                         for col_idx, col in enumerate(ws.columns, start=1):
@@ -1142,7 +1143,6 @@ if has_zonda and has_tourmo:
                                     cell.fill = green_fill
                                     cell.font = green_font
 
-                    # Autofit column widths
                     for col in ws.columns:
                         h_val = str(col[0].value or "")
                         m_len = max(
