@@ -1,0 +1,16 @@
+name: Keep Streamlit App Alive
+
+on:
+  schedule:
+    # Runs automatically every 4 hours, 24/7
+    - cron: '0 */4 * * *'
+  workflow_dispatch: # Allows manual trigger anytime
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Streamlit App URL
+        run: |
+          # Replace the URL below with your actual Streamlit App URL
+          curl -I -s -L "https://tabletuse-tourmo.streamlit.app" || true
