@@ -235,7 +235,7 @@ def get_osrm_distance(p1, p2):
     try:
         url = f"http://router.project-osrm.org/route/v1/driving/{lon1},{lat1};{lon2},{lat2}?overview=false"
         req = urllib.request.Request(
-            url, headers={"User-Agent": "HeraclesApp/English/1.0"}
+            url, headers={"User-Agent": "HeraclesApp/Persistent/1.0"}
         )
         with urllib.request.urlopen(req, timeout=10) as response:
             data = json.loads(response.read().decode())
@@ -266,6 +266,10 @@ def read_csv_smart(raw_bytes):
     return None
 
 
+# Initialize session state for persistent results
+if "processed_result" not in st.session_state:
+    st.session_state["processed_result"] = None
+
 # ==============================================================================
 # 3. STAGE 1 (OPTIONAL): MERGE TWO ZONDA CSV FILES
 # ==============================================================================
@@ -280,7 +284,6 @@ with st.sidebar:
     st.markdown("📍 **Origin Depots:** 9 Loading Points")
     st.markdown("🚢 **Maritime Connections:** 18 Sea/Ferry Hubs")
 
-# Session state initialization for merged Zonda
 if "merged_zonda_df" not in st.session_state:
     st.session_state["merged_zonda_df"] = None
 
@@ -300,7 +303,6 @@ with st.expander("🛠️ Stage 1 (Optional): Merge Two Zonda CSV Files", expand
             df_z2 = read_csv_smart(f_z2.getvalue())
 
             if df_z1 is not None and df_z2 is not None:
-                # Concat both datasets
                 df_merged_zonda = pd.concat([df_z1, df_z2], ignore_index=True)
                 st.session_state["merged_zonda_df"] = df_merged_zonda
 
@@ -308,7 +310,6 @@ with st.expander("🛠️ Stage 1 (Optional): Merge Two Zonda CSV Files", expand
                     f"✅ Merged successfully! File #1 ({len(df_z1):,} rows) + File #2 ({len(df_z2):,} rows) = **{len(df_merged_zonda):,} total rows**."
                 )
 
-                # Export to CSV with UTF-8 BOM and semicolon (standard Zonda format)
                 csv_buffer = io.BytesIO()
                 df_merged_zonda.to_csv(
                     csv_buffer, sep=";", index=False, encoding="utf-8-sig"
@@ -330,7 +331,6 @@ st.markdown("---")
 # ==============================================================================
 st.subheader("📑 Stage 2: Upload Files for Reconciliation")
 
-# Option to use auto-merged file from Stage 1 if available
 use_auto_merged = False
 if st.session_state["merged_zonda_df"] is not None:
     use_auto_merged = st.checkbox(
@@ -353,7 +353,6 @@ with col2:
         "2. Upload TOURMO CSV (Telematics Data)", type=["csv"], key="tourmo_main"
     )
 
-# Proceed if we have Zonda (either auto-merged or uploaded) and Tourmo
 has_zonda = use_auto_merged or (file_zonda is not None)
 has_tourmo = file_tourmo is not None
 
@@ -361,13 +360,11 @@ if has_zonda and has_tourmo:
     st.markdown("<br>", unsafe_allow_html=True)
     if st.button("🚀 Process Data & Generate Consolidated Report"):
         with st.spinner("Processing datasets and calculating road distances..."):
-            # Load Zonda
             if use_auto_merged:
                 df_zonda = st.session_state["merged_zonda_df"].copy()
             else:
                 df_zonda = read_csv_smart(file_zonda.getvalue())
 
-            # Load Tourmo
             df_tourmo = read_csv_smart(file_tourmo.getvalue())
 
             if df_zonda is None or df_tourmo is None:
@@ -500,7 +497,6 @@ if has_zonda and has_tourmo:
                 cols.insert(c_idx, z_sap)
                 df_zonda = df_zonda[cols]
 
-            # Detailed notifications
             zero_coord_alerts = []
             modified_distance_alerts = []
             is_dist_changed_zonda = []
@@ -559,7 +555,6 @@ if has_zonda and has_tourmo:
                             matched_ferry = ferry
                             break
 
-                    # 1. Zero coordinates check
                     if s_lat == 0.0 or s_lon == 0.0:
                         final_dist_zonda.append(0.0)
                         is_dist_changed_zonda.append(False)
@@ -580,7 +575,6 @@ if has_zonda and has_tourmo:
                             orig_coords = coords
                             break
 
-                    # 2. Ferry / Island calculation (Subtract sea miles)
                     if matched_ferry and orig_coords:
                         isl_port = matched_ferry["island_port"]
                         if (
@@ -610,7 +604,6 @@ if has_zonda and has_tourmo:
                                 }
                             )
 
-                    # 3. Mainland distance calculated from 0 km
                     elif orig_d == 0.0 and orig_coords:
                         r_km = get_osrm_distance(orig_coords, (s_lat, s_lon))
                         tot_km = round(r_km * 2, 2)
@@ -657,7 +650,6 @@ if has_zonda and has_tourmo:
             t_dist = find_t_contains("Απόσταση")
             t_unit = find_t_contains("Μονάδα Μέτρησης")
 
-            # Remove test drivers
             if t_surname:
                 df_tourmo = df_tourmo[
                     ~df_tourmo[t_surname]
@@ -666,7 +658,6 @@ if has_zonda and has_tourmo:
                     .str.contains("test")
                 ].copy()
 
-            # Vehicle Plate = Name + Surname without 'g'
             if t_name and t_surname:
                 c_name = df_tourmo[t_name].astype(str).str.strip()
                 c_sur = df_tourmo[t_surname].astype(str).str.strip()
@@ -680,7 +671,6 @@ if has_zonda and has_tourmo:
                 df_tourmo.insert(n_idx, "Vehicle", comb_v)
                 df_tourmo.drop(columns=[t_name, t_surname], inplace=True)
 
-            # Carrier SAP ID extraction
             t_ext_id = find_t_contains("Εξωτερικό αναγνωριστικό")
             if t_ext_id:
 
@@ -718,12 +708,11 @@ if has_zonda and has_tourmo:
                     df_tourmo[t_id], errors="coerce"
                 ).astype("Int64")
 
-            # Exact field matching for Tourmo hierarchy
             t_parent_group = find_t_contains("Γονική Ομάδα")
             t_group = find_t_exact("Ομάδα")
             t_veh_col = "Vehicle"
 
-            # 1. Tourmo Pivot 1 (Vehicle)
+            # Tourmo Pivots
             t_piv1 = (
                 df_tourmo.groupby(
                     [t_parent_group, t_group, t_veh_col], as_index=False
@@ -733,7 +722,6 @@ if has_zonda and has_tourmo:
             )
             t_piv1["Tourmo_Km"] = t_piv1["Tourmo_Km"].round(0)
 
-            # 2. Tourmo Pivot 2 (Carrier SAP)
             t_piv2 = (
                 df_tourmo.groupby(
                     [t_parent_group, t_ext_id, t_group], as_index=False
@@ -743,7 +731,7 @@ if has_zonda and has_tourmo:
             )
             t_piv2["Tourmo_Km"] = t_piv2["Tourmo_Km"].round(0)
 
-            # --- C. ZONDA PIVOTS (With Parent Group to the far right) ---
+            # --- C. ZONDA PIVOTS (Parent Group on the far right) ---
             z_piv1 = (
                 df_zonda.groupby([z_carrier, z_vehicle], as_index=False)[z_dist]
                 .sum()
@@ -779,7 +767,7 @@ if has_zonda and has_tourmo:
                     return 1.0  # Cap at 100%
                 return round(pct, 2)
 
-            # 1. Tablet_Use_Truck (FULL OUTER JOIN)
+            # 1. Tablet_Use_Truck
             z_trucks_agg = (
                 df_zonda.groupby(z_vehicle, as_index=False)
                 .agg({z_carrier: "first", z_shipping: "first", z_dist: "sum"})
@@ -837,7 +825,7 @@ if has_zonda and has_tourmo:
                 ]
             ].sort_values(by=["Parent_Group", "Carrier_Name", "Vehicle"])
 
-            # 2. Tablet_Use_Carrier (FULL OUTER JOIN)
+            # 2. Tablet_Use_Carrier
             z_carriers_agg = (
                 df_zonda.groupby(z_sap, as_index=False)
                 .agg({z_carrier: "first", z_shipping: "first", z_dist: "sum"})
@@ -900,7 +888,6 @@ if has_zonda and has_tourmo:
             # --- E. EXCEL WRITING & FORMATTING ---
             output_buffer = io.BytesIO()
 
-            # Styling palettes
             red_fill = PatternFill(
                 start_color="FFC7CE", end_color="FFC7CE", fill_type="solid"
             )
@@ -986,7 +973,6 @@ if has_zonda and has_tourmo:
                     writer, index=False, sheet_name="Tourmo_Pivot_SAP"
                 )
 
-                # Apply styling across all 8 sheets
                 for sheet_name in writer.sheets.keys():
                     ws = writer.sheets[sheet_name]
                     ws.freeze_panes = "A2"
@@ -1026,7 +1012,14 @@ if has_zonda and has_tourmo:
 
                     # Traffic-light color styling for percentages
                     if is_tablet_tab:
-                        pct_col_idx = ws.max_column
+                        pct_col_idx = None
+                        for col_idx, col in enumerate(ws.columns, start=1):
+                            if "RATE" in str(col[0].value or "").upper():
+                                pct_col_idx = col_idx
+                                break
+                        if not pct_col_idx:
+                            pct_col_idx = ws.max_column
+
                         for row_idx in range(2, ws.max_row + 1):
                             cell = ws.cell(row=row_idx, column=pct_col_idx)
                             cell.number_format = "0%"
@@ -1087,87 +1080,112 @@ if has_zonda and has_tourmo:
                                 d_cell.fill = red_fill
                                 d_cell.font = red_font
 
-            st.success("🎉 **Reconciliation & Calculations Completed!**")
+            # Store results in Session State to prevent reports from disappearing on download!
+            st.session_state["processed_result"] = {
+                "excel_bytes": output_buffer.getvalue(),
+                "df_zonda_len": len(df_zonda),
+                "total_fleet": len(tablet_truck),
+                "total_zonda_km": int(round(df_zonda[z_dist].sum())),
+                "avg_tablet_usage": tablet_truck["Tablet_Usage_Rate"].mean() * 100,
+                "modified_distance_alerts": modified_distance_alerts,
+                "zero_coord_alerts": zero_coord_alerts,
+                "tablet_truck": tablet_truck,
+                "tablet_carrier": tablet_carrier,
+            }
 
-            # KPI Summary
-            k1, k2, k3, k4 = st.columns(4)
-            with k1:
-                st.metric("Total Zonda Orders", len(df_zonda))
-            with k2:
-                st.metric("Total Fleet Audited", len(tablet_truck))
-            with k3:
-                st.metric(
-                    "Total Zonda Mileage (x2)",
-                    f"{int(round(df_zonda[z_dist].sum())):,} km",
-                )
-            with k4:
-                avg_u = tablet_truck["Tablet_Usage_Rate"].mean() * 100
-                st.metric("Average Tablet Usage", f"{avg_u:.0f}%")
+# ==============================================================================
+# 5. PERSISTENT REPORT PRESENTATION (SURVIVES FILE DOWNLOAD)
+# ==============================================================================
+if st.session_state.get("processed_result") is not None:
+    res = st.session_state["processed_result"]
 
-            st.markdown("<br>", unsafe_allow_html=True)
+    st.success("🎉 **Reconciliation & Calculations Completed!**")
 
-            # Download Button
-            st.download_button(
-                label="📥 Download Consolidated Report (Logistics_Report_HERACLES.xlsx)",
-                data=output_buffer.getvalue(),
-                file_name="Logistics_Report_HERACLES.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    # KPI Summary Cards
+    k1, k2, k3, k4 = st.columns(4)
+    with k1:
+        st.markdown(
+            f"""<div class="metric-card"><div class="metric-label">Total Zonda Orders</div><div class="metric-value">{res['df_zonda_len']:,}</div></div>""",
+            unsafe_allow_html=True,
+        )
+    with k2:
+        st.markdown(
+            f"""<div class="metric-card"><div class="metric-label">Total Fleet Audited</div><div class="metric-value">{res['total_fleet']:,}</div></div>""",
+            unsafe_allow_html=True,
+        )
+    with k3:
+        st.markdown(
+            f"""<div class="metric-card"><div class="metric-label">Total Zonda Mileage (x2)</div><div class="metric-value">{res['total_zonda_km']:,} km</div></div>""",
+            unsafe_allow_html=True,
+        )
+    with k4:
+        st.markdown(
+            f"""<div class="metric-card"><div class="metric-label">Average Tablet Usage</div><div class="metric-value">{res['avg_tablet_usage']:.0f}%</div></div>""",
+            unsafe_allow_html=True,
+        )
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # Download Button (Reports below will remain on screen after clicking!)
+    st.download_button(
+        label="📥 Download Consolidated Report (Logistics_Report_HERACLES.xlsx)",
+        data=res["excel_bytes"],
+        file_name="Logistics_Report_HERACLES.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+
+    # Detailed Notifications & Alerts
+    st.markdown("---")
+    st.subheader("📋 Audit & Notification Summary")
+
+    if res["modified_distance_alerts"]:
+        with st.expander(
+            f"🚢 Distance Corrections ({len(res['modified_distance_alerts'])} orders: Sea Miles Excluded / Recalculated)",
+            expanded=True,
+        ):
+            st.dataframe(
+                pd.DataFrame(res["modified_distance_alerts"]),
+                use_container_width=True,
             )
 
-            # ==================================================================
-            # DETAILED NOTIFICATIONS & ALERTS
-            # ==================================================================
-            st.markdown("---")
-            st.subheader("📋 Audit & Notification Summary")
-
-            if modified_distance_alerts:
-                with st.expander(
-                    f"🚢 Distance Corrections ({len(modified_distance_alerts)} orders: Sea Miles Excluded / Recalculated)",
-                    expanded=True,
-                ):
-                    st.dataframe(
-                        pd.DataFrame(modified_distance_alerts),
-                        use_container_width=True,
-                    )
-
-            if zero_coord_alerts:
-                with st.expander(
-                    f"⚠️ Zero Coordinates Alert ({len(zero_coord_alerts)} orders: Lat/Lon 0.0)",
-                    expanded=False,
-                ):
-                    st.dataframe(
-                        pd.DataFrame(zero_coord_alerts),
-                        use_container_width=True,
-                    )
-
-            # Interactive Previews
-            st.markdown("### 🔍 Live Data Previews")
-            tab_v, tab_c = st.tabs(
-                [
-                    "🚛 Vehicle Level (Tablet_Use_Truck)",
-                    "🏢 Carrier Level (Tablet_Use_Carrier)",
-                ]
+    if res["zero_coord_alerts"]:
+        with st.expander(
+            f"⚠️ Zero Coordinates Alert ({len(res['zero_coord_alerts'])} orders: Lat/Lon 0.0)",
+            expanded=False,
+        ):
+            st.dataframe(
+                pd.DataFrame(res["zero_coord_alerts"]),
+                use_container_width=True,
             )
 
-            with tab_v:
-                st.dataframe(
-                    tablet_truck.style.format(
-                        {
-                            "Tourmo_Km": "{:.0f}",
-                            "Zonda_Km": "{:.0f}",
-                            "Tablet_Usage_Rate": "{:.0%}",
-                        }
-                    ),
-                    use_container_width=True,
-                )
-            with tab_c:
-                st.dataframe(
-                    tablet_carrier.style.format(
-                        {
-                            "Tourmo_Km": "{:.0f}",
-                            "Zonda_Km": "{:.0f}",
-                            "Tablet_Usage_Rate": "{:.0%}",
-                        }
-                    ),
-                    use_container_width=True,
-                )
+    # Interactive Previews
+    st.markdown("### 🔍 Live Data Previews")
+    tab_v, tab_c = st.tabs(
+        [
+            "🚛 Vehicle Level (Tablet_Use_Truck)",
+            "🏢 Carrier Level (Tablet_Use_Carrier)",
+        ]
+    )
+
+    with tab_v:
+        st.dataframe(
+            res["tablet_truck"].style.format(
+                {
+                    "Tourmo_Km": "{:.0f}",
+                    "Zonda_Km": "{:.0f}",
+                    "Tablet_Usage_Rate": "{:.0%}",
+                }
+            ),
+            use_container_width=True,
+        )
+    with tab_c:
+        st.dataframe(
+            res["tablet_carrier"].style.format(
+                {
+                    "Tourmo_Km": "{:.0f}",
+                    "Zonda_Km": "{:.0f}",
+                    "Tablet_Usage_Rate": "{:.0%}",
+                }
+            ),
+            use_container_width=True,
+        )
