@@ -11,7 +11,7 @@ import streamlit as st
 import streamlit.components.v1 as components
 
 # ==============================================================================
-# 1. PAGE CONFIG & HERACLES GROUP STYLING
+# 1. PAGE CONFIG & HOLCIM / HERACLES GROUP BRANDING
 # ==============================================================================
 st.set_page_config(
     page_title="HERACLES GROUP | Tablet Use Tourmo",
@@ -20,61 +20,104 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
+# Custom CSS matching the Rolling Scorecard corporate theme
 st.markdown(
     """
     <style>
-        .main { background-color: #f8fafc; }
-        .heracles-header {
-            background: linear-gradient(135deg, #002B49 0%, #004b7a 60%, #0072CE 100%);
+        /* General page background */
+        .main {
+            background-color: #F8FAFC;
+        }
+        /* Top Navigation Header Card */
+        .holcim-header-card {
+            background: linear-gradient(135deg, #002B49 0%, #004B7A 50%, #005A36 100%);
             padding: 24px 30px;
             border-radius: 12px;
             color: white;
-            margin-bottom: 22px;
-            border-left: 8px solid #00A3E0;
-            box-shadow: 0 4px 15px rgba(0, 43, 73, 0.15);
+            margin-bottom: 25px;
+            box-shadow: 0 4px 16px rgba(0, 43, 73, 0.15);
+            border-left: 8px solid #97D700;
         }
-        .heracles-header h1 { color: #ffffff; font-size: 26px; font-weight: 800; margin: 0; }
-        .heracles-header p { color: #dbeafe; font-size: 14px; margin-top: 5px; margin-bottom: 0; }
+        .holcim-header-card h1 {
+            color: #FFFFFF !important;
+            font-size: 26px !important;
+            font-weight: 800 !important;
+            margin: 0 !important;
+            letter-spacing: 0.5px;
+        }
+        .holcim-header-card p {
+            color: #E2E8F0 !important;
+            font-size: 14px !important;
+            margin-top: 6px !important;
+            margin-bottom: 0 !important;
+            font-weight: 400;
+        }
+        /* Metric KPI Cards */
         .metric-card {
-            background-color: white;
+            background-color: #FFFFFF;
             padding: 16px 20px;
             border-radius: 10px;
-            border: 1px solid #e2e8f0;
+            border: 1px solid #E2E8F0;
             border-top: 4px solid #002B49;
             text-align: center;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
         }
-        .metric-value { font-size: 24px; font-weight: 800; color: #002B49; margin-top: 4px; }
-        .metric-label { font-size: 12px; color: #64748b; font-weight: 600; text-transform: uppercase; }
+        .metric-value {
+            font-size: 24px;
+            font-weight: 800;
+            color: #002B49;
+            margin-top: 4px;
+        }
+        .metric-label {
+            font-size: 12px;
+            color: #64748B;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        /* Primary Corporate Action Button */
         .stButton>button {
-            background: linear-gradient(135deg, #002B49 0%, #0072CE 100%) !important;
+            background: linear-gradient(135deg, #002B49 0%, #005A36 100%) !important;
             color: white !important;
             font-weight: 700 !important;
             font-size: 16px !important;
             padding: 12px 28px !important;
             border-radius: 8px !important;
             border: none !important;
+            box-shadow: 0 4px 12px rgba(0, 43, 73, 0.25) !important;
+            transition: all 0.3s ease !important;
+        }
+        .stButton>button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(0, 90, 54, 0.35) !important;
         }
     </style>
     """,
     unsafe_allow_html=True,
 )
 
-# Keep-Alive Heartbeat
+# Keep-Alive Heartbeat (Prevents session timeout)
 components.html(
     """<script>setInterval(function(){window.dispatchEvent(new Event('resize'));fetch(window.location.href,{mode:'no-cors'}).catch(()=>{});},40000);</script>""",
     height=0,
 )
 
-st.markdown(
-    """
-    <div class="heracles-header">
-        <h1>🏛️ HERACLES GROUP | Tablet Use Tourmo</h1>
-        <p>Logistics Reconciliation: Zonda Orders vs. TOURMO Telematics & Real Road Mileage Calculation</p>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
+# Header Banner with Logo + Title Layout
+h_col1, h_col2 = st.columns([1, 5])
+with h_col1:
+    st.image(
+        "https://upload.wikimedia.org/wikipedia/commons/thumb/c/ca/Holcim_Logo.svg/1024px-Holcim_Logo.svg.png",
+        width=150,
+    )
+with h_col2:
+    st.markdown(
+        """
+        <div class="holcim-header-card">
+            <h1>🏛️ HERACLES GROUP | Tablet Use Tourmo</h1>
+            <p>Logistics Reconciliation: Zonda Orders vs. TOURMO Telematics & Real Road Mileage Calculation</p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
 # ==============================================================================
 # 2. COORDINATES & FERRY CONFIGURATION
@@ -235,7 +278,7 @@ def get_osrm_distance(p1, p2):
     try:
         url = f"http://router.project-osrm.org/route/v1/driving/{lon1},{lat1};{lon2},{lat2}?overview=false"
         req = urllib.request.Request(
-            url, headers={"User-Agent": "HeraclesApp/Persistent/1.0"}
+            url, headers={"User-Agent": "HolcimReconcilerApp/1.0"}
         )
         with urllib.request.urlopen(req, timeout=10) as response:
             data = json.loads(response.read().decode())
@@ -266,20 +309,19 @@ def read_csv_smart(raw_bytes):
     return None
 
 
-# Initialize session state for persistent results
 if "processed_result" not in st.session_state:
     st.session_state["processed_result"] = None
 
 # ==============================================================================
-# 3. STAGE 1 (OPTIONAL): MERGE TWO ZONDA CSV FILES
+# 3. SIDEBAR & STAGE 1 (OPTIONAL ZONDA MERGE)
 # ==============================================================================
 with st.sidebar:
     st.image(
-        "https://upload.wikimedia.org/wikipedia/commons/thumb/c/ca/Holcim_Logo.svg/512px-Holcim_Logo.svg.png",
-        width=160,
+        "https://upload.wikimedia.org/wikipedia/commons/thumb/c/ca/Holcim_Logo.svg/1024px-Holcim_Logo.svg.png",
+        width=150,
     )
     st.markdown("### ⚙️ System Status")
-    st.info("🟢 **Live Session:** Heartbeat active (No timeout).")
+    st.info("🟢 **Live Session:** Heartbeat active.")
     st.markdown("---")
     st.markdown("📍 **Origin Depots:** 9 Loading Points")
     st.markdown("🚢 **Maritime Connections:** 18 Sea/Ferry Hubs")
@@ -712,7 +754,7 @@ if has_zonda and has_tourmo:
             t_group = find_t_exact("Ομάδα")
             t_veh_col = "Vehicle"
 
-            # Tourmo Pivots
+            # 1. Tourmo Pivot 1 (Vehicle)
             t_piv1 = (
                 df_tourmo.groupby(
                     [t_parent_group, t_group, t_veh_col], as_index=False
@@ -722,6 +764,7 @@ if has_zonda and has_tourmo:
             )
             t_piv1["Tourmo_Km"] = t_piv1["Tourmo_Km"].round(0)
 
+            # 2. Tourmo Pivot 2 (Carrier SAP)
             t_piv2 = (
                 df_tourmo.groupby(
                     [t_parent_group, t_ext_id, t_group], as_index=False
@@ -731,7 +774,7 @@ if has_zonda and has_tourmo:
             )
             t_piv2["Tourmo_Km"] = t_piv2["Tourmo_Km"].round(0)
 
-            # --- C. ZONDA PIVOTS (Parent Group on the far right) ---
+            # --- C. ZONDA PIVOTS (With Parent Group to the far right) ---
             z_piv1 = (
                 df_zonda.groupby([z_carrier, z_vehicle], as_index=False)[z_dist]
                 .sum()
@@ -767,7 +810,7 @@ if has_zonda and has_tourmo:
                     return 1.0  # Cap at 100%
                 return round(pct, 2)
 
-            # 1. Tablet_Use_Truck
+            # 1. Tablet_Use_Truck (FULL OUTER JOIN)
             z_trucks_agg = (
                 df_zonda.groupby(z_vehicle, as_index=False)
                 .agg({z_carrier: "first", z_shipping: "first", z_dist: "sum"})
@@ -825,7 +868,7 @@ if has_zonda and has_tourmo:
                 ]
             ].sort_values(by=["Parent_Group", "Carrier_Name", "Vehicle"])
 
-            # 2. Tablet_Use_Carrier
+            # 2. Tablet_Use_Carrier (FULL OUTER JOIN)
             z_carriers_agg = (
                 df_zonda.groupby(z_sap, as_index=False)
                 .agg({z_carrier: "first", z_shipping: "first", z_dist: "sum"})
@@ -920,7 +963,7 @@ if has_zonda and has_tourmo:
             )
 
             with pd.ExcelWriter(output_buffer, engine="openpyxl") as writer:
-                # 🌟 TABLET USAGE SHEETS (1st & 2nd) 🌟
+                # 🌟 TABLET USAGE SHEETS FIRST 🌟
                 tablet_truck.to_excel(
                     writer, index=False, sheet_name="Tablet_Use_Truck"
                 )
@@ -973,6 +1016,7 @@ if has_zonda and has_tourmo:
                     writer, index=False, sheet_name="Tourmo_Pivot_SAP"
                 )
 
+                # Style all 8 sheets
                 for sheet_name in writer.sheets.keys():
                     ws = writer.sheets[sheet_name]
                     ws.freeze_panes = "A2"
@@ -1010,7 +1054,6 @@ if has_zonda and has_tourmo:
                         for cell in row:
                             cell.alignment = center_alignment
 
-                    # Traffic-light color styling for percentages
                     if is_tablet_tab:
                         pct_col_idx = None
                         for col_idx, col in enumerate(ws.columns, start=1):
@@ -1038,7 +1081,6 @@ if has_zonda and has_tourmo:
                                     cell.fill = green_fill
                                     cell.font = green_font
 
-                    # Autofit column widths
                     for col in ws.columns:
                         h_val = str(col[0].value or "")
                         m_len = max(
@@ -1063,7 +1105,6 @@ if has_zonda and has_tourmo:
                                 m_len + 5, 14
                             )
 
-                # Red highlight for modified distances in Zonda_Orders
                 ws_z = writer.sheets["Zonda_Orders"]
                 d_idx = None
                 for idx, col_name in enumerate(df_zonda.columns, start=1):
@@ -1080,7 +1121,7 @@ if has_zonda and has_tourmo:
                                 d_cell.fill = red_fill
                                 d_cell.font = red_font
 
-            # Store results in Session State to prevent reports from disappearing on download!
+            # Cache results in Session State to prevent reports disappearing upon download
             st.session_state["processed_result"] = {
                 "excel_bytes": output_buffer.getvalue(),
                 "df_zonda_len": len(df_zonda),
@@ -1126,7 +1167,7 @@ if st.session_state.get("processed_result") is not None:
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # Download Button (Reports below will remain on screen after clicking!)
+    # Download Button
     st.download_button(
         label="📥 Download Consolidated Report (Logistics_Report_HERACLES.xlsx)",
         data=res["excel_bytes"],
