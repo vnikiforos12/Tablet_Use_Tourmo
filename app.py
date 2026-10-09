@@ -48,7 +48,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# Keep-Alive Heartbeat (Prevents session timeout)
+# Keep-Alive Heartbeat
 components.html(
     """<script>setInterval(function(){window.dispatchEvent(new Event('resize'));fetch(window.location.href,{mode:'no-cors'}).catch(()=>{});},40000);</script>""",
     height=0,
@@ -58,7 +58,7 @@ st.markdown(
     """
     <div class="heracles-header">
         <h1>🏛️ ΟΜΙΛΟΣ ΗΡΑΚΛΗΣ | Logistics & Telematics Reconciler</h1>
-        <p>Έκδοση 3.0 (Tablet Tabs στην αρχή | 100% αν Zonda=0 | Ξεχωριστό Sky-Blue χρώμα | Cap 100%)</p>
+        <p>Έκδοση 4.0 (Full Outer Join: Συμπερίληψη όλων των οχημάτων/μεταφορέων Zonda με 0% και κόκκινο χρώμα αν λείπουν από το Tourmo)</p>
     </div>
     """,
     unsafe_allow_html=True,
@@ -77,6 +77,18 @@ SHIPPING_COORDS = {
     "Igoumenitsa Terminal": (39.486899, 20.248540),
     "Thessaloniki Terminal-Exports": (40.645465, 22.898439),
     "ΚΔ ΡΙΟΥ": (38.311128, 21.793005),
+}
+
+SHIPPING_TO_PARENT = {
+    "Μηλάκι οδικές φορτώσεις": "Milaki",
+    "ΚΔ ΔΡΑΠΕΤΣΩΝΑΣ": "Drapetsona",
+    "ΒΟΛΟΣ_ΟΔΙΚΕΣ_ΦΟΡΤΩΣΕΙΣ": "Volos",
+    "Thessaloniki Terminal": "Thessaloniki",
+    "Thessaloniki Terminal-Exports": "Thessaloniki",
+    "ΚΔ ΗΡΑΚΛΕΙΟΥ": "Heraklion",
+    "Kavala Terminal": "Kavala",
+    "Igoumenitsa Terminal": "Igoumenitsa",
+    "ΚΔ ΡΙΟΥ": "Rio",
 }
 
 FERRY_DESTINATIONS = [
@@ -211,7 +223,7 @@ def get_osrm_distance(p1, p2):
     try:
         url = f"http://router.project-osrm.org/route/v1/driving/{lon1},{lat1};{lon2},{lat2}?overview=false"
         req = urllib.request.Request(
-            url, headers={"User-Agent": "HeraclesApp/3.0"}
+            url, headers={"User-Agent": "HeraclesApp/4.0"}
         )
         with urllib.request.urlopen(req, timeout=10) as response:
             data = json.loads(response.read().decode())
@@ -558,10 +570,12 @@ if file_zonda and file_tourmo:
                 ).astype("Int64")
 
             t_parent_group = find_t_contains("Γονική Ομάδα")
-            t_group = find_t_exact("Ομάδα")
+            t_group = find_t_exact(
+                "Ομάδα"
+            )  # Ακριβές όνομα για να μην επιλέγει Εβδομάδα!
             t_veh_col = find_t_exact("Όχημα")
 
-            # Tourmo Pivots (Στρογγυλοποίηση σε ακέραιο)
+            # 1. Tourmo Pivots
             t_piv1 = (
                 df_tourmo.groupby(
                     [t_parent_group, t_group, t_veh_col], as_index=False
@@ -607,51 +621,124 @@ if file_zonda and file_tourmo:
                 z_piv2[z_sap].map(tourmo_parent_by_sap).fillna("-")
             )
 
-            # --- D. ΣΥΓΚΡΙΤΙΚΕΣ ΚΑΡΤΕΛΕΣ TABLET USAGE (ΒΑΣΗ TOURMO) ---
+            # --- D. ΣΥΓΚΡΙΤΙΚΕΣ ΚΑΡΤΕΛΕΣ TABLET USAGE (FULL OUTER JOIN) ---
             def calc_usage_pct(t_val, z_val):
-                # ΝΕΟΣ ΚΑΝΟΝΑΣ: Αν Zonda_Km == 0 (είτε Tourmo=0 είτε Tourmo>0) -> 100%
                 if z_val == 0:
-                    return 1.0
+                    return 1.0  # 100% αν Zonda=0 (είτε Tourmo=0 είτε Tourmo>0)
                 pct = t_val / z_val
-                # Cap at 100%
                 if pct > 1.0:
-                    return 1.0
+                    return 1.0  # Cap at 100%
                 return round(pct, 2)
 
-            # 1. Tablet_Use_Truck
-            tablet_truck = t_piv1.copy()
-            zonda_km_by_veh = (
-                df_zonda.groupby(z_vehicle)[z_dist].sum().round(0).to_dict()
+            # 1. Tablet_Use_Truck (FULL OUTER JOIN ώστε να περιλαμβάνονται και όσα λείπουν από το Tourmo)
+            z_trucks_agg = (
+                df_zonda.groupby(z_vehicle, as_index=False)
+                .agg({z_carrier: "first", z_shipping: "first", z_dist: "sum"})
+                .rename(
+                    columns={
+                        z_vehicle: t_veh_col,
+                        z_carrier: "Z_Carrier",
+                        z_shipping: "Z_Shipping",
+                        z_dist: "Zonda_Km",
+                    }
+                )
+            )
+            z_trucks_agg["Zonda_Km"] = z_trucks_agg["Zonda_Km"].round(0)
+
+            tablet_truck = pd.merge(
+                t_piv1, z_trucks_agg, on=t_veh_col, how="outer"
+            )
+            tablet_truck["Tourmo_Km"] = (
+                tablet_truck["Tourmo_Km"].fillna(0.0).round(0)
             )
             tablet_truck["Zonda_Km"] = (
-                tablet_truck[t_veh_col]
-                .map(zonda_km_by_veh)
-                .fillna(0.0)
-                .round(0)
+                tablet_truck["Zonda_Km"].fillna(0.0).round(0)
             )
+
+            # Συμπλήρωση Ονόματος Μεταφορέα & Γονικής Ομάδας από Zonda αν λείπουν από Tourmo
+            tablet_truck[t_group] = tablet_truck[t_group].fillna(
+                tablet_truck["Z_Carrier"]
+            )
+            tablet_truck[t_parent_group] = tablet_truck[t_parent_group].fillna(
+                tablet_truck["Z_Shipping"].map(SHIPPING_TO_PARENT)
+            )
+            tablet_truck[t_parent_group] = tablet_truck[t_parent_group].fillna(
+                tablet_truck["Z_Shipping"]
+            )
+            tablet_truck.drop(columns=["Z_Carrier", "Z_Shipping"], inplace=True)
+
             tablet_truck["Ποσοστό Χρήσης Tablet"] = tablet_truck.apply(
                 lambda r: calc_usage_pct(r["Tourmo_Km"], r["Zonda_Km"]), axis=1
             )
 
-            # 2. Tablet_Use_Carrier
-            tablet_carrier = t_piv2.copy()
-            zonda_km_by_sap = (
-                df_zonda.groupby(z_sap)[z_dist].sum().round(0).to_dict()
+            # Ταξινόμηση και σωστή σειρά στηλών
+            tablet_truck = tablet_truck[
+                [
+                    t_parent_group,
+                    t_group,
+                    t_veh_col,
+                    "Tourmo_Km",
+                    "Zonda_Km",
+                    "Ποσοστό Χρήσης Tablet",
+                ]
+            ].sort_values(by=[t_parent_group, t_group, t_veh_col])
+
+            # 2. Tablet_Use_Carrier (FULL OUTER JOIN)
+            z_carriers_agg = (
+                df_zonda.groupby(z_sap, as_index=False)
+                .agg({z_carrier: "first", z_shipping: "first", z_dist: "sum"})
+                .rename(
+                    columns={
+                        z_sap: t_ext_id,
+                        z_carrier: "Z_Carrier",
+                        z_shipping: "Z_Shipping",
+                        z_dist: "Zonda_Km",
+                    }
+                )
+            )
+            z_carriers_agg["Zonda_Km"] = z_carriers_agg["Zonda_Km"].round(0)
+
+            tablet_carrier = pd.merge(
+                t_piv2, z_carriers_agg, on=t_ext_id, how="outer"
+            )
+            tablet_carrier["Tourmo_Km"] = (
+                tablet_carrier["Tourmo_Km"].fillna(0.0).round(0)
             )
             tablet_carrier["Zonda_Km"] = (
-                tablet_carrier[t_ext_id]
-                .map(zonda_km_by_sap)
-                .fillna(0.0)
-                .round(0)
+                tablet_carrier["Zonda_Km"].fillna(0.0).round(0)
             )
+
+            tablet_carrier[t_group] = tablet_carrier[t_group].fillna(
+                tablet_carrier["Z_Carrier"]
+            )
+            tablet_carrier[t_parent_group] = tablet_carrier[
+                t_parent_group
+            ].fillna(tablet_carrier["Z_Shipping"].map(SHIPPING_TO_PARENT))
+            tablet_carrier[t_parent_group] = tablet_carrier[
+                t_parent_group
+            ].fillna(tablet_carrier["Z_Shipping"])
+            tablet_carrier.drop(
+                columns=["Z_Carrier", "Z_Shipping"], inplace=True
+            )
+
             tablet_carrier["Ποσοστό Χρήσης Tablet"] = tablet_carrier.apply(
                 lambda r: calc_usage_pct(r["Tourmo_Km"], r["Zonda_Km"]), axis=1
             )
 
+            tablet_carrier = tablet_carrier[
+                [
+                    t_parent_group,
+                    t_ext_id,
+                    t_group,
+                    "Tourmo_Km",
+                    "Zonda_Km",
+                    "Ποσοστό Χρήσης Tablet",
+                ]
+            ].sort_values(by=[t_parent_group, t_group])
+
             # --- E. EXCEL WRITING & FORMATTING ---
             output_buffer = io.BytesIO()
 
-            # Styling definitions
             red_fill = PatternFill(
                 start_color="FFC7CE", end_color="FFC7CE", fill_type="solid"
             )
@@ -660,7 +747,6 @@ if file_zonda and file_tourmo:
                 horizontal="center", vertical="center"
             )
 
-            # Standard light blue header for generic sheets
             std_header_fill = PatternFill(
                 start_color="DDEBF7", end_color="DDEBF7", fill_type="solid"
             )
@@ -668,7 +754,6 @@ if file_zonda and file_tourmo:
                 name="Calibri", size=11, bold=True, color="1F497D"
             )
 
-            # UNIQUE vibrant Sky-Blue header for the 2 Tablet Usage sheets
             tablet_header_fill = PatternFill(
                 start_color="BEE3F8", end_color="BEE3F8", fill_type="solid"
             )
@@ -677,7 +762,7 @@ if file_zonda and file_tourmo:
             )
 
             with pd.ExcelWriter(output_buffer, engine="openpyxl") as writer:
-                # 🌟 ΠΡΩΤΕΣ ΟΙ 2 ΚΑΡΤΕΛΕΣ TABLET USAGE ΣΤΗΝ ΑΡΧΗ ΤΟΥ ΑΡΧΕΙΟΥ! 🌟
+                # 🌟 ΠΡΩΤΕΣ ΟΙ 2 ΚΑΡΤΕΛΕΣ TABLET USAGE 🌟
                 tablet_truck.to_excel(
                     writer, index=False, sheet_name="Tablet_Use_Truck"
                 )
@@ -685,7 +770,7 @@ if file_zonda and file_tourmo:
                     writer, index=False, sheet_name="Tablet_Use_Carrier"
                 )
 
-                # Στη συνέχεια οι υπόλοιπες καρτέλες
+                # Υπόλοιπες καρτέλες
                 df_zonda.to_excel(
                     writer, index=False, sheet_name="Zonda_Orders"
                 )
@@ -706,13 +791,11 @@ if file_zonda and file_tourmo:
                     writer, index=False, sheet_name="Tourmo_Pivot_SAP"
                 )
 
-                # Μορφοποίηση όλων των καρτελών
                 for sheet_name in writer.sheets.keys():
                     ws = writer.sheets[sheet_name]
                     ws.freeze_panes = "A2"
                     ws.auto_filter.ref = ws.dimensions
 
-                    # Ειδικό Sky-Blue header & Tab Color για τα 2 πρώτα Tablet tabs
                     is_tablet_tab = sheet_name in [
                         "Tablet_Use_Truck",
                         "Tablet_Use_Carrier",
@@ -729,7 +812,6 @@ if file_zonda and file_tourmo:
                     )
 
                     if is_tablet_tab:
-                        # Χρώμα καρτέλας κάτω στο Excel (Unique Sky/Cyan Blue)
                         ws.sheet_properties.tabColor = "0072CE"
 
                     for cell in ws[1]:
@@ -748,7 +830,6 @@ if file_zonda and file_tourmo:
 
                     # Μορφοποίηση ποσοστού και κοκκίνισμα του 0%
                     if is_tablet_tab:
-                        # Βρίσκουμε τη στήλη του ποσοστού
                         pct_col_idx = None
                         for col_idx, col in enumerate(ws.columns, start=1):
                             if "ΠΟΣΟΣΤΟ" in str(col[0].value or "").upper():
@@ -823,7 +904,7 @@ if file_zonda and file_tourmo:
             with k1:
                 st.metric("Παραγγελίες Zonda", len(df_zonda))
             with k2:
-                st.metric("Στόλος Tourmo", len(t_piv1))
+                st.metric("Σύνολο Οχημάτων (Έλεγχος)", len(tablet_truck))
             with k3:
                 st.metric(
                     "Χιλιόμετρα Zonda (x2)",
@@ -835,10 +916,10 @@ if file_zonda and file_tourmo:
 
             st.markdown("<br>", unsafe_allow_html=True)
 
-            # Download Button (v3)
+            # Download Button (v4)
             st.download_button(
-                label="📥 Λήψη Αναφοράς Excel (Logistics_Report_v3_NEW.xlsx)",
+                label="📥 Λήψη Αναφοράς Excel (Logistics_Report_v4_COMPLETE.xlsx)",
                 data=output_buffer.getvalue(),
-                file_name="Logistics_Report_v3_NEW.xlsx",
+                file_name="Logistics_Report_v4_COMPLETE.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             )
