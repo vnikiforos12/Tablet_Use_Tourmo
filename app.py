@@ -1,5 +1,6 @@
 import io
 import json
+import os
 import re
 import time
 import urllib.request
@@ -11,11 +12,17 @@ import streamlit as st
 import streamlit.components.v1 as components
 
 # ==============================================================================
-# 1. PAGE CONFIG & HOLCIM / HERACLES GROUP BRANDING
+# 1. PAGE CONFIG & FAVICON (favicon.png)
 # ==============================================================================
+FAVICON = (
+    "favicon.png"
+    if os.path.exists("favicon.png")
+    else ("logo.png" if os.path.exists("logo.png") else "🏛️")
+)
+
 st.set_page_config(
     page_title="HERACLES GROUP | Tablet Use Tourmo",
-    page_icon="🏛️",
+    page_icon=FAVICON,  # Uses favicon.png from your repository
     layout="wide",
     initial_sidebar_state="expanded",
 )
@@ -24,31 +31,29 @@ st.set_page_config(
 st.markdown(
     """
     <style>
-        /* General page background */
         .main {
             background-color: #F8FAFC;
         }
         /* Top Navigation Header Card */
         .holcim-header-card {
             background: linear-gradient(135deg, #002B49 0%, #004B7A 50%, #005A36 100%);
-            padding: 24px 30px;
+            padding: 22px 28px;
             border-radius: 12px;
             color: white;
-            margin-bottom: 25px;
             box-shadow: 0 4px 16px rgba(0, 43, 73, 0.15);
             border-left: 8px solid #97D700;
         }
         .holcim-header-card h1 {
             color: #FFFFFF !important;
-            font-size: 26px !important;
+            font-size: 25px !important;
             font-weight: 800 !important;
             margin: 0 !important;
             letter-spacing: 0.5px;
         }
         .holcim-header-card p {
             color: #E2E8F0 !important;
-            font-size: 14px !important;
-            margin-top: 6px !important;
+            font-size: 13.5px !important;
+            margin-top: 5px !important;
             margin-bottom: 0 !important;
             font-weight: 400;
         }
@@ -95,20 +100,26 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# Keep-Alive Heartbeat (Prevents session timeout)
+# Keep-Alive Heartbeat (Prevents browser timeout)
 components.html(
     """<script>setInterval(function(){window.dispatchEvent(new Event('resize'));fetch(window.location.href,{mode:'no-cors'}).catch(()=>{});},40000);</script>""",
     height=0,
 )
 
-# Header Banner with Logo + Title Layout
-h_col1, h_col2 = st.columns([1, 5])
+
+# Helper function to render logo.png on the right
+def render_logo(width=160):
+    if os.path.exists("logo.png"):
+        st.image("logo.png", width=width)
+    else:
+        st.image(
+            "https://cdn.worldvectorlogo.com/logos/holcim.svg", width=width
+        )
+
+
+# 🌟 HEADER LAYOUT: TITLE ON THE LEFT — logo.png ON THE RIGHT 🌟
+h_col1, h_col2 = st.columns([5, 1.2])
 with h_col1:
-    st.image(
-        "https://upload.wikimedia.org/wikipedia/commons/thumb/c/ca/Holcim_Logo.svg/1024px-Holcim_Logo.svg.png",
-        width=150,
-    )
-with h_col2:
     st.markdown(
         """
         <div class="holcim-header-card">
@@ -118,6 +129,10 @@ with h_col2:
         """,
         unsafe_allow_html=True,
     )
+with h_col2:
+    render_logo(width=160)
+
+st.markdown("<br>", unsafe_allow_html=True)
 
 # ==============================================================================
 # 2. COORDINATES & FERRY CONFIGURATION
@@ -278,7 +293,7 @@ def get_osrm_distance(p1, p2):
     try:
         url = f"http://router.project-osrm.org/route/v1/driving/{lon1},{lat1};{lon2},{lat2}?overview=false"
         req = urllib.request.Request(
-            url, headers={"User-Agent": "HolcimReconcilerApp/1.0"}
+            url, headers={"User-Agent": "HeraclesApp/English/1.0"}
         )
         with urllib.request.urlopen(req, timeout=10) as response:
             data = json.loads(response.read().decode())
@@ -309,25 +324,22 @@ def read_csv_smart(raw_bytes):
     return None
 
 
-if "processed_result" not in st.session_state:
-    st.session_state["processed_result"] = None
-
 # ==============================================================================
 # 3. SIDEBAR & STAGE 1 (OPTIONAL ZONDA MERGE)
 # ==============================================================================
 with st.sidebar:
-    st.image(
-        "https://upload.wikimedia.org/wikipedia/commons/thumb/c/ca/Holcim_Logo.svg/1024px-Holcim_Logo.svg.png",
-        width=150,
-    )
+    render_logo(width=140)
     st.markdown("### ⚙️ System Status")
-    st.info("🟢 **Live Session:** Heartbeat active.")
+    st.info("🟢 **Live Session:** Heartbeat active (No timeout).")
     st.markdown("---")
     st.markdown("📍 **Origin Depots:** 9 Loading Points")
     st.markdown("🚢 **Maritime Connections:** 18 Sea/Ferry Hubs")
 
 if "merged_zonda_df" not in st.session_state:
     st.session_state["merged_zonda_df"] = None
+
+if "processed_result" not in st.session_state:
+    st.session_state["processed_result"] = None
 
 with st.expander("🛠️ Stage 1 (Optional): Merge Two Zonda CSV Files", expanded=False):
     st.markdown(
@@ -508,9 +520,7 @@ if has_zonda and has_tourmo:
                     if pd.isna(val) or str(val).strip() == "":
                         return ""
                     v_str = str(val).strip()
-                    pattern = (
-                        r"([A-Za-zΑ-Ωα-ω]{3}\s*\d{4}|[A-Za-z]{1,2}\s*\d{2,3}\s*[A-Za-z]{3})"
-                    )
+                    pattern = r"([A-Za-zΑ-Ωα-ω]{3}\s*\d{4}|[A-Za-z]{1,2}\s*\d{2,3}\s*[A-Za-z]{3})"
                     m = re.search(pattern, v_str)
                     p = (
                         m.group(1).replace(" ", "").upper()
@@ -539,6 +549,7 @@ if has_zonda and has_tourmo:
                 cols.insert(c_idx, z_sap)
                 df_zonda = df_zonda[cols]
 
+            # Detailed notification tracking
             zero_coord_alerts = []
             modified_distance_alerts = []
             is_dist_changed_zonda = []
@@ -597,6 +608,7 @@ if has_zonda and has_tourmo:
                             matched_ferry = ferry
                             break
 
+                    # 1. Zero coordinates check
                     if s_lat == 0.0 or s_lon == 0.0:
                         final_dist_zonda.append(0.0)
                         is_dist_changed_zonda.append(False)
@@ -617,6 +629,7 @@ if has_zonda and has_tourmo:
                             orig_coords = coords
                             break
 
+                    # 2. Ferry / Island calculation (Subtract sea miles)
                     if matched_ferry and orig_coords:
                         isl_port = matched_ferry["island_port"]
                         if (
@@ -646,6 +659,7 @@ if has_zonda and has_tourmo:
                                 }
                             )
 
+                    # 3. Mainland distance calculated from 0 km
                     elif orig_d == 0.0 and orig_coords:
                         r_km = get_osrm_distance(orig_coords, (s_lat, s_lon))
                         tot_km = round(r_km * 2, 2)
@@ -692,6 +706,7 @@ if has_zonda and has_tourmo:
             t_dist = find_t_contains("Απόσταση")
             t_unit = find_t_contains("Μονάδα Μέτρησης")
 
+            # Remove test drivers
             if t_surname:
                 df_tourmo = df_tourmo[
                     ~df_tourmo[t_surname]
@@ -700,6 +715,7 @@ if has_zonda and has_tourmo:
                     .str.contains("test")
                 ].copy()
 
+            # Vehicle Plate = Name + Surname without 'g'
             if t_name and t_surname:
                 c_name = df_tourmo[t_name].astype(str).str.strip()
                 c_sur = df_tourmo[t_surname].astype(str).str.strip()
@@ -713,6 +729,7 @@ if has_zonda and has_tourmo:
                 df_tourmo.insert(n_idx, "Vehicle", comb_v)
                 df_tourmo.drop(columns=[t_name, t_surname], inplace=True)
 
+            # Carrier SAP ID extraction
             t_ext_id = find_t_contains("Εξωτερικό αναγνωριστικό")
             if t_ext_id:
 
@@ -750,6 +767,7 @@ if has_zonda and has_tourmo:
                     df_tourmo[t_id], errors="coerce"
                 ).astype("Int64")
 
+            # Exact field matching for Tourmo hierarchy
             t_parent_group = find_t_contains("Γονική Ομάδα")
             t_group = find_t_exact("Ομάδα")
             t_veh_col = "Vehicle"
@@ -774,7 +792,7 @@ if has_zonda and has_tourmo:
             )
             t_piv2["Tourmo_Km"] = t_piv2["Tourmo_Km"].round(0)
 
-            # --- C. ZONDA PIVOTS (With Parent Group to the far right) ---
+            # --- C. ZONDA PIVOTS (Parent Group on the far right) ---
             z_piv1 = (
                 df_zonda.groupby([z_carrier, z_vehicle], as_index=False)[z_dist]
                 .sum()
@@ -1016,7 +1034,7 @@ if has_zonda and has_tourmo:
                     writer, index=False, sheet_name="Tourmo_Pivot_SAP"
                 )
 
-                # Style all 8 sheets
+                # Style all sheets
                 for sheet_name in writer.sheets.keys():
                     ws = writer.sheets[sheet_name]
                     ws.freeze_panes = "A2"
@@ -1054,6 +1072,7 @@ if has_zonda and has_tourmo:
                         for cell in row:
                             cell.alignment = center_alignment
 
+                    # Traffic-light color styling for percentages
                     if is_tablet_tab:
                         pct_col_idx = None
                         for col_idx, col in enumerate(ws.columns, start=1):
@@ -1081,6 +1100,7 @@ if has_zonda and has_tourmo:
                                     cell.fill = green_fill
                                     cell.font = green_font
 
+                    # Autofit column widths
                     for col in ws.columns:
                         h_val = str(col[0].value or "")
                         m_len = max(
@@ -1105,6 +1125,7 @@ if has_zonda and has_tourmo:
                                 m_len + 5, 14
                             )
 
+                # Red highlight for modified distances in Zonda_Orders
                 ws_z = writer.sheets["Zonda_Orders"]
                 d_idx = None
                 for idx, col_name in enumerate(df_zonda.columns, start=1):
